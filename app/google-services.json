@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "34830885359",
+    "project_id": "smartreview-f7d5c",
+    "storage_bucket": "smartreview-f7d5c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:34830885359:android:d4998288a173d1dce4d61a",
+        "android_client_info": {
+          "package_name": "com.example.smartreview"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9cYCyW3a9qFY4Zs0AoQ7P1E_AmGURowk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
