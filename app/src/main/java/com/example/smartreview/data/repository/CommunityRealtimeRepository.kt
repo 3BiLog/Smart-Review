@@ -16,5 +16,9 @@ interface CommunityRealtimeRepository {
 
     fun observeMessages(roomId: String): Flow<List<ChatMessage>>
 
-    suspend fun sendMessage(roomId: String, message: ChatMessage): Boolean
+    /**
+     * Persists [message] to Firestore.
+     * @return auto-generated document id on success, null on failure (caller may keep a local-only copy).
+     */
+    suspend fun sendMessage(roomId: String, message: ChatMessage): String?
 }

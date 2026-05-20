@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.example.smartreview.ui.auth.AuthRoutes
 import com.example.smartreview.ui.components.SmartReviewBottomBar
 import com.example.smartreview.ui.theme.*
 import androidx.compose.ui.unit.sp
@@ -191,7 +192,13 @@ fun ProfileScreen(
 
             // ── Logout ────────────────────────────────────────────────────
             Button(
-                onClick  = vm::logout,
+                onClick  = {
+                    vm.logout {
+                        navController.navigate(AuthRoutes.GRAPH) {
+                            launchSingleTop = true
+                        }
+                    }
+                },
                 shape    = RoundedCornerShape(16.dp),
                 colors   = ButtonDefaults.buttonColors(containerColor = ErrorColor.copy(0.15f)),
                 modifier = Modifier.fillMaxWidth()

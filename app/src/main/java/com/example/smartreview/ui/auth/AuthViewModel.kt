@@ -2,9 +2,12 @@ package com.example.smartreview.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.smartreview.data.auth.AuthSession
 import com.example.smartreview.data.model.AuthResult
 import com.example.smartreview.data.repository.AuthRepository
 import com.example.smartreview.data.repository.AuthRepositoryProvider
+import com.example.smartreview.data.repository.UserRepository
+import com.example.smartreview.data.repository.UserRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,13 +31,18 @@ data class AuthUiState(
 
 class AuthViewModel(
     private val authRepository: AuthRepository = AuthRepositoryProvider.default,
+    private val userRepository: UserRepository = UserRepositoryProvider.default,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     init {
-        checkAuthState()
+        AuthSession.ensureStarted()
+        syncFromSession()
+        viewModelScope.launch {
+            AuthSession.state.collect { syncFromSession() }
+        }
     }
 
     fun onEmailChange(value: String) = _uiState.update { it.copy(email = value, error = null) }
@@ -46,16 +54,7 @@ class AuthViewModel(
 
     fun onTermsToggle() = _uiState.update { it.copy(termsAccepted = !it.termsAccepted) }
 
-    fun checkAuthState() {
-        val user = authRepository.getCurrentUser()
-        _uiState.update {
-            it.copy(
-                isAuthenticated = authRepository.isAuthenticated(),
-                currentUserEmail = user?.email,
-                currentUserId = user?.uid,
-            )
-        }
-    }
+    fun checkAuthState() = syncFromSession()
 
     fun login(onSuccess: () -> Unit) {
         val state = _uiState.value
@@ -67,6 +66,7 @@ class AuthViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             when (val result = authRepository.signInWithEmail(state.email, state.password)) {
                 is AuthResult.Success -> {
+                    ensureFirestoreProfile(result.user.uid, result.user.email)
                     applyAuthenticatedUser(result.user.email, result.user.uid)
                     onSuccess()
                 }
@@ -87,6 +87,7 @@ class AuthViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             when (val result = authRepository.registerWithEmail(state.email, state.password)) {
                 is AuthResult.Success -> {
+                    ensureFirestoreProfile(result.user.uid, result.user.email)
                     applyAuthenticatedUser(result.user.email, result.user.uid)
                     onSuccess()
                 }
@@ -99,6 +100,7 @@ class AuthViewModel(
 
     fun logout() {
         authRepository.signOut()
+        AuthSession.refresh()
         _uiState.update {
             it.copy(
                 isAuthenticated = false,
@@ -110,7 +112,14 @@ class AuthViewModel(
         }
     }
 
+    fun showSocialLoginUnavailable() {
+        _uiState.update {
+            it.copy(error = "Đăng nhập Google/Apple chưa được kích hoạt. Vui lòng dùng email.")
+        }
+    }
+
     private fun applyAuthenticatedUser(email: String, uid: String) {
+        AuthSession.refresh()
         _uiState.update {
             it.copy(
                 isLoading = false,
@@ -118,6 +127,21 @@ class AuthViewModel(
                 isAuthenticated = true,
                 currentUserEmail = email,
                 currentUserId = uid,
+            )
+        }
+    }
+
+    private suspend fun ensureFirestoreProfile(uid: String, email: String) {
+        userRepository.ensureUserProfileExists(uid, email)
+    }
+
+    private fun syncFromSession() {
+        val session = AuthSession.state.value
+        _uiState.update {
+            it.copy(
+                isAuthenticated = session.isAuthenticated,
+                currentUserEmail = session.email,
+                currentUserId = session.uid,
             )
         }
     }

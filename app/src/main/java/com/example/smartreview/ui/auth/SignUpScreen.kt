@@ -139,8 +139,8 @@ fun SignUpScreen(
             Spacer(Modifier.height(16.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                SocialLoginButton("Google", onClick = { onNavigateVerify() }, modifier = Modifier.weight(1f))
-                SocialLoginButton("Apple",  onClick = { onNavigateVerify() }, modifier = Modifier.weight(1f))
+                SocialLoginButton("Google", onClick = { vm.showSocialLoginUnavailable() }, modifier = Modifier.weight(1f))
+                SocialLoginButton("Apple",  onClick = { vm.showSocialLoginUnavailable() }, modifier = Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(24.dp))

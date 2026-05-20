@@ -127,7 +127,7 @@ fun LoginScreen(
 
             SocialLoginButton(
                 label    = "Google",
-                onClick  = { onLoginSuccess() },
+                onClick  = { vm.showSocialLoginUnavailable() },
                 modifier = Modifier.fillMaxWidth(),
             )
 

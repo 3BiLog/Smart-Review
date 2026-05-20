@@ -8,12 +8,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
+import com.example.smartreview.data.auth.AuthSession
 import com.example.smartreview.ui.navigation.SmartReviewNavGraph
 import com.example.smartreview.ui.theme.SmartReviewTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AuthSession.ensureStarted()
         setContent {
             SmartReviewTheme {
                 Surface(

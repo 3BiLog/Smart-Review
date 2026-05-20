@@ -54,18 +54,20 @@ object CommunityFirestoreMapper {
         return mapToMessageDocument(data).createdAt ?: Long.MAX_VALUE
     }
 
-    fun messageToFirestoreMap(message: ChatMessage, createdAt: Long = System.currentTimeMillis()): Map<String, Any?> =
-        mapOf(
+    fun messageToFirestoreMap(message: ChatMessage, createdAt: Long = System.currentTimeMillis()): Map<String, Any> {
+        val fields = mutableMapOf<String, Any>(
             "senderId" to message.senderId,
             "senderName" to message.senderName,
             "senderAvatar" to message.senderAvatar,
             "content" to message.content,
             "time" to message.time,
             "type" to message.type.name,
-            "imageUrl" to message.imageUrl,
             "isCurrentUser" to message.isCurrentUser,
             "createdAt" to createdAt,
         )
+        message.imageUrl?.takeIf { it.isNotBlank() }?.let { fields["imageUrl"] = it }
+        return fields
+    }
 
     private fun resolveRoomName(roomId: String, dto: ChatRoomDocument): String =
         dto.name?.takeIf { it.isNotBlank() } ?: roomId
