@@ -29,6 +29,7 @@ import coil.compose.AsyncImage
 import com.example.smartreview.data.model.CourseModule
 import com.example.smartreview.data.model.LessonItem
 import com.example.smartreview.ui.screens.courses.difficultyColor
+import com.example.smartreview.ui.screens.lesson.lessonRoute
 import com.example.smartreview.ui.theme.*
 
 // ─── Route ───────────────────────────────────────────────────────────────────
@@ -162,8 +163,9 @@ fun CourseDetailScreen(
                     isExpanded = module.id in state.expandedModuleIds,
                     onToggle   = { vm.toggleModule(module.id) },
                     onLessonClick = { lesson ->
-                        if (!lesson.isLocked)
-                            navController.navigate("lesson_player/${lesson.id}")
+                        if (!lesson.isLocked) {
+                            navController.navigate(lessonRoute(lesson.id))
+                        }
                     },
                     modifier   = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )

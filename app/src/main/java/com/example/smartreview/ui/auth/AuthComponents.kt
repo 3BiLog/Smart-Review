@@ -101,12 +101,17 @@ fun AuthTextField(
     keyboardType:  KeyboardType     = KeyboardType.Text,
     imeAction:     ImeAction        = ImeAction.Next,
     onImeAction:   () -> Unit       = {},
+    enabled:       Boolean          = true,
+    isError:       Boolean          = false,
+    supportingText: String?        = null,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = OnSurfaceVariant)
         OutlinedTextField(
             value          = value,
             onValueChange  = onValueChange,
+            enabled        = enabled,
+            isError        = isError,
             leadingIcon    = { Icon(leadingIcon, null, tint = OnSurfaceVariant) },
             singleLine     = true,
             shape          = RoundedCornerShape(12.dp),
@@ -116,11 +121,22 @@ fun AuthTextField(
                 onDone   = { onImeAction() },
                 onSearch = { onImeAction() },
             ),
+            supportingText = supportingText?.let {
+                {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isError) ErrorColor else OnSurfaceVariant,
+                    )
+                }
+            },
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedBorderColor    = Color.Transparent,
-                focusedBorderColor      = Primary,
+                focusedBorderColor      = if (isError) ErrorColor else Primary,
+                errorBorderColor        = ErrorColor,
                 unfocusedContainerColor = SurfaceContainer,
                 focusedContainerColor   = SurfaceContainer,
+                disabledContainerColor  = SurfaceContainer.copy(alpha = 0.6f),
                 unfocusedTextColor      = OnSurface,
                 focusedTextColor        = OnSurface,
                 cursorColor             = Primary,
@@ -147,15 +163,20 @@ fun AuthPasswordField(
     modifier:         Modifier   = Modifier,
     imeAction:        ImeAction  = ImeAction.Done,
     onImeAction:      () -> Unit = {},
+    enabled:          Boolean    = true,
+    isError:          Boolean    = false,
+    supportingText:   String?    = null,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = OnSurfaceVariant)
         OutlinedTextField(
             value               = value,
             onValueChange       = onValueChange,
+            enabled             = enabled,
+            isError             = isError,
             leadingIcon         = { Icon(Icons.Default.Lock, null, tint = OnSurfaceVariant) },
             trailingIcon        = {
-                IconButton(onClick = onToggleVisibility) {
+                IconButton(onClick = onToggleVisibility, enabled = enabled) {
                     Icon(
                         if (isVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                         null,
@@ -168,11 +189,22 @@ fun AuthPasswordField(
             shape                = RoundedCornerShape(12.dp),
             keyboardOptions      = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = imeAction),
             keyboardActions      = KeyboardActions(onDone = { onImeAction() }),
+            supportingText = supportingText?.let {
+                {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isError) ErrorColor else OnSurfaceVariant,
+                    )
+                }
+            },
             colors               = OutlinedTextFieldDefaults.colors(
                 unfocusedBorderColor    = Color.Transparent,
-                focusedBorderColor      = Primary,
+                focusedBorderColor      = if (isError) ErrorColor else Primary,
+                errorBorderColor        = ErrorColor,
                 unfocusedContainerColor = SurfaceContainer,
                 focusedContainerColor   = SurfaceContainer,
+                disabledContainerColor  = SurfaceContainer.copy(alpha = 0.6f),
                 unfocusedTextColor      = OnSurface,
                 focusedTextColor        = OnSurface,
                 cursorColor             = Primary,
@@ -240,9 +272,11 @@ fun SocialLoginButton(
     label:   String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     OutlinedButton(
         onClick  = onClick,
+        enabled  = enabled,
         shape    = RoundedCornerShape(12.dp),
         border   = BorderStroke(2.dp, SurfaceVariant),
         colors   = ButtonDefaults.outlinedButtonColors(containerColor = SurfaceContainer),
@@ -294,6 +328,212 @@ fun BoxScope.AuthBackgroundOrbs() {
             .offset(x = 100.dp, y = 100.dp)
             .background(Brush.radialGradient(listOf(Secondary.copy(0.10f), Color.Transparent)), CircleShape)
     )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FORM CARD + ERROR BANNER
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun AuthFormCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        color = GlassBg,
+        shape = RoundedCornerShape(20.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, GlassBorder, RoundedCornerShape(20.dp)),
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(24.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
+fun AuthErrorBanner(message: String, modifier: Modifier = Modifier) {
+    Surface(
+        color = ErrorColor.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+        ) {
+            Icon(Icons.Default.ErrorOutline, null, tint = ErrorColor, modifier = Modifier.size(18.dp))
+            Text(message, color = ErrorColor, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+fun AuthScreenHeader(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = OnSurface,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            color = OnSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+fun AuthTopBar(
+    title: String,
+    onBack: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    Surface(color = GlassBg, modifier = modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+        ) {
+            if (onBack != null) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại", tint = Primary)
+                }
+            } else {
+                Spacer(Modifier.size(48.dp))
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    brush = Brush.linearGradient(listOf(GradientStart, GradientEnd)),
+                    fontWeight = FontWeight.Bold,
+                ),
+            )
+            Spacer(Modifier.size(48.dp))
+        }
+    }
+}
+
+@Composable
+fun AuthValidationHint(
+    text: String,
+    isValid: Boolean? = null,
+    modifier: Modifier = Modifier,
+) {
+    val (icon, tint) = when (isValid) {
+        true  -> Icons.Default.CheckCircle to Secondary
+        false -> Icons.Default.Cancel to ErrorColor
+        null  -> Icons.Default.Info to OnSurfaceVariant
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier,
+    ) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(14.dp))
+        Text(text, style = MaterialTheme.typography.labelSmall, color = tint)
+    }
+}
+
+@Composable
+fun AuthPasswordStrengthBar(password: String, modifier: Modifier = Modifier) {
+    val strength = when {
+        password.length >= 10 -> 3
+        password.length >= 8  -> 2
+        password.length >= AuthUiState.MIN_PASSWORD_LENGTH -> 1
+        else -> 0
+    }
+    val label = when (strength) {
+        3 -> "Mạnh"
+        2 -> "Khá"
+        1 -> "Đủ dùng"
+        else -> "Quá ngắn"
+    }
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            repeat(3) { index ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(
+                            if (index < strength) {
+                                when (strength) {
+                                    3 -> Secondary
+                                    2 -> Primary
+                                    else -> OnSurfaceVariant
+                                }
+                            } else {
+                                SurfaceVariant.copy(alpha = 0.5f)
+                            },
+                        ),
+                )
+            }
+        }
+        Text(label, style = MaterialTheme.typography.labelSmall, color = OnSurfaceVariant)
+    }
+}
+
+@Composable
+fun AuthSignUpChecklist(
+    fullNameOk: Boolean,
+    emailOk: Boolean,
+    passwordOk: Boolean,
+    passwordsMatch: Boolean,
+    termsOk: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        AuthValidationHint("Họ tên hợp lệ", isValid = fullNameOk)
+        AuthValidationHint("Email hợp lệ", isValid = emailOk)
+        AuthValidationHint("Mật khẩu đủ ${AuthUiState.MIN_PASSWORD_LENGTH} ký tự", isValid = passwordOk)
+        AuthValidationHint("Mật khẩu xác nhận khớp", isValid = passwordsMatch)
+        AuthValidationHint("Đồng ý điều khoản", isValid = termsOk)
+    }
+}
+
+@Composable
+fun AuthLoadingOverlay(isLoading: Boolean, message: String = "Đang xử lý...") {
+    if (!isLoading) return
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.35f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            color = SurfaceContainer,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.padding(32.dp),
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = 20.dp),
+            ) {
+                CircularProgressIndicator(color = Primary, strokeWidth = 2.dp, modifier = Modifier.size(32.dp))
+                Text(message, style = MaterialTheme.typography.bodyMedium, color = OnSurface)
+            }
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

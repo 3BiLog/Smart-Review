@@ -6,6 +6,7 @@ import com.google.firebase.Timestamp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Date
 
@@ -52,6 +53,7 @@ class CommunityFirestoreMapperTest {
 
     @Test
     fun toChatMessage_mapsCanonicalFields() {
+        val createdAt = 1_700_000_000_000L
         val message = CommunityFirestoreMapper.toChatMessage(
             "msg1",
             mapOf(
@@ -59,14 +61,17 @@ class CommunityFirestoreMapperTest {
                 "senderName" to "Minh",
                 "senderAvatar" to "https://example.com/a.png",
                 "content" to "Xin chào",
-                "time" to "10:24 AM",
+                "time" to "Now",
                 "type" to "TEXT",
+                "createdAt" to createdAt,
             ),
         )
         assertNotNull(message)
         assertEquals("Minh", message!!.senderName)
         assertEquals("Xin chào", message.content)
         assertEquals(MessageType.TEXT, message.type)
+        assertTrue(message.time.isNotBlank())
+        assertTrue(!message.time.equals("Now", ignoreCase = true))
     }
 
     @Test
@@ -85,6 +90,57 @@ class CommunityFirestoreMapperTest {
     fun toChatMessage_returnsNullWhenNoContent() {
         val message = CommunityFirestoreMapper.toChatMessage("msg3", mapOf("senderName" to "Lan"))
         assertNull(message)
+    }
+
+    @Test
+    fun toChatMessage_ignoresPersistedIsCurrentUser() {
+        val message = CommunityFirestoreMapper.toChatMessage(
+            "msg_owner",
+            mapOf(
+                "senderId" to "user_a",
+                "senderName" to "User A",
+                "content" to "Hello",
+                "isCurrentUser" to true,
+            ),
+            currentUserId = "user_b",
+        )
+        assertEquals(false, message!!.isCurrentUser)
+    }
+
+    @Test
+    fun toChatMessage_resolvesOwnershipFromSenderId() {
+        val message = CommunityFirestoreMapper.toChatMessage(
+            "msg_mine",
+            mapOf(
+                "senderId" to "user_a",
+                "senderName" to "User A",
+                "content" to "My message",
+            ),
+            currentUserId = "user_a",
+        )
+        assertEquals(true, message!!.isCurrentUser)
+    }
+
+    @Test
+    fun messageToFirestoreMap_doesNotPersistIsCurrentUser() {
+        val createdAt = 1_700_000_000_000L
+        val map = CommunityFirestoreMapper.messageToFirestoreMap(
+            com.example.smartreview.data.model.ChatMessage(
+                id = "1",
+                senderId = "uid_1",
+                senderName = "A",
+                senderAvatar = "https://example.com/a.png",
+                content = "Hi",
+                time = "Now",
+                type = MessageType.TEXT,
+                isCurrentUser = true,
+            ),
+            createdAt = createdAt,
+        )
+        assertEquals(false, map.containsKey("isCurrentUser"))
+        assertEquals(createdAt, map["createdAt"])
+        assertTrue((map["time"] as String).isNotBlank())
+        assertTrue(!(map["time"] as String).equals("Now", ignoreCase = true))
     }
 
     @Test

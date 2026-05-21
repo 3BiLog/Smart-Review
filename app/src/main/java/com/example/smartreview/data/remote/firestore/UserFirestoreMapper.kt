@@ -18,11 +18,19 @@ object UserFirestoreMapper {
             email = email,
             avatarUrl = dto.avatarUrl?.takeIf { it.isNotBlank() }
                 ?: defaultAvatarUrl(uid),
+            phone = dto.phone.orEmpty(),
             streak = dto.streak?.toInt() ?: 0,
             xp = dto.xp?.toInt() ?: 0,
+            lastStudyDate = dto.lastStudyDate.orEmpty(),
             joinedAt = dto.joinedAt ?: 0L,
         )
     }
+
+    /** Partial update map for the signed-in user's own document (users/{uid}). */
+    fun profileUpdateMap(displayName: String, phone: String): Map<String, Any> = mapOf(
+        "displayName" to displayName.trim(),
+        "phone" to phone.trim(),
+    )
 
     fun newUserFirestoreMap(
         uid: String,
@@ -34,8 +42,10 @@ object UserFirestoreMapper {
         "displayName" to (displayName?.takeIf { it.isNotBlank() } ?: defaultDisplayName(email, uid)),
         "email" to email.trim(),
         "avatarUrl" to defaultAvatarUrl(uid),
+        "phone" to "",
         "streak" to 0,
         "xp" to 0,
+        "lastStudyDate" to "",
         "joinedAt" to joinedAt,
     )
 
@@ -53,9 +63,11 @@ object UserFirestoreMapper {
             uid = stringField(data, "uid", "userId", "user_id"),
             displayName = stringField(data, "displayName", "display_name", "name"),
             email = stringField(data, "email"),
+            phone = stringField(data, "phone", "phoneNumber", "phone_number"),
             avatarUrl = stringField(data, "avatarUrl", "avatar_url", "photoUrl", "photo_url"),
             streak = numberField(data, "streak"),
             xp = numberField(data, "xp", "experience", "points"),
+            lastStudyDate = stringField(data, "lastStudyDate", "last_study_date"),
             joinedAt = timestampField(data, "joinedAt", "joined_at", "createdAt", "created_at"),
         )
 

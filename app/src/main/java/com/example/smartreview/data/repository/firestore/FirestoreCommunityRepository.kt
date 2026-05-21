@@ -2,6 +2,8 @@ package com.example.smartreview.data.repository.firestore
 
 import com.example.smartreview.data.model.ChatMessage
 import com.example.smartreview.data.model.ChatRoom
+import com.example.smartreview.data.model.isMessageFromCurrentUser
+import com.example.smartreview.data.model.withCurrentUserOwnership
 import com.example.smartreview.data.remote.firestore.CommunityFirestoreMapper
 import com.example.smartreview.data.remote.firestore.CommunityFirestorePaths
 import com.example.smartreview.data.repository.CommunityRealtimeRepository
@@ -20,7 +22,8 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 /**
- * Firestore-backed Community repository with mock fallback for offline/empty/error cases.
+ * Firestore-backed Community repository.
+ * Mock fallback applies only when authenticated (offline/permission errors), never for guests.
  */
 class FirestoreCommunityRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -28,25 +31,25 @@ class FirestoreCommunityRepository(
     private val fallback: CommunityRepository = MockCommunityRepository(),
 ) : CommunityRepository, CommunityRealtimeRepository {
 
-    // ─── Sync reads (CommunityRepository) — used by current ViewModels ───────────
-
     override fun getRooms(): List<ChatRoom> = runBlocking(Dispatchers.IO) {
+        if (!isAuthenticated()) return@runBlocking emptyList()
         fetchRoomsOrNull() ?: fallback.getRooms()
     }
 
     override fun getSuggestedRooms(): List<ChatRoom> = runBlocking(Dispatchers.IO) {
+        if (!isAuthenticated()) return@runBlocking emptyList()
         fetchSuggestedRoomsOrNull() ?: fallback.getSuggestedRooms()
     }
 
     override fun getRoomName(roomId: String): String = runBlocking(Dispatchers.IO) {
+        if (!isAuthenticated()) return@runBlocking fallback.getRoomName(roomId)
         fetchRoomName(roomId) ?: fallback.getRoomName(roomId)
     }
 
     override fun getMessages(roomId: String): List<ChatMessage> = runBlocking(Dispatchers.IO) {
+        if (!isAuthenticated()) return@runBlocking emptyList()
         fetchMessagesOrNull(roomId) ?: fallback.getMessages(roomId)
     }
-
-    // ─── Realtime (CommunityRealtimeRepository) ───────────────────────────────────
 
     override fun observeRooms(): Flow<List<ChatRoom>> =
         collectionSnapshotFlow(CommunityFirestorePaths.ROOMS) { fallback.getRooms() }
@@ -55,13 +58,17 @@ class FirestoreCommunityRepository(
         collectionSnapshotFlow(CommunityFirestorePaths.SUGGESTED_ROOMS) { fallback.getSuggestedRooms() }
 
     override fun observeMessages(roomId: String): Flow<List<ChatMessage>> = callbackFlow {
+        if (!isAuthenticated()) {
+            trySend(emptyList())
+            awaitClose { }
+            return@callbackFlow
+        }
         val registration = messagesCollection(roomId).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                trySend(fallback.getMessages(roomId))
+                trySend(fallback.getMessages(roomId).withCurrentUserOwnership(currentUserId()))
                 return@addSnapshotListener
             }
-            val messages = mapAndSortMessages(snapshot?.documents.orEmpty())
-            // Never replace a successful empty Firestore snapshot with mock data.
+            val messages = mapAndSortMessages(snapshot?.documents.orEmpty(), currentUserId())
             trySend(messages)
         }
         awaitClose { registration.remove() }
@@ -80,9 +87,27 @@ class FirestoreCommunityRepository(
             }
         }
 
-    // ─── Firestore helpers ───────────────────────────────────────────────────────
+    override suspend fun deleteMessage(roomId: String, messageId: String): Boolean =
+        withContext(Dispatchers.IO) {
+            val uid = currentUserId()
+            if (!isAuthenticated() || uid.isNullOrBlank() || messageId.isBlank()) return@withContext false
+            try {
+                val docRef = messagesCollection(roomId).document(messageId)
+                val snapshot = docRef.get().await()
+                if (!snapshot.exists()) return@withContext false
+                val senderId = CommunityFirestoreMapper.toChatMessage(messageId, snapshot.data)?.senderId
+                    .orEmpty()
+                if (!isMessageFromCurrentUser(senderId, uid)) return@withContext false
+                docRef.delete().await()
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
 
     private fun isAuthenticated(): Boolean = firebaseAuth.currentUser != null
+
+    private fun currentUserId(): String? = firebaseAuth.currentUser?.uid
 
     private suspend fun fetchRoomsOrNull(): List<ChatRoom>? =
         fetchCollection(CommunityFirestorePaths.ROOMS)
@@ -90,9 +115,8 @@ class FirestoreCommunityRepository(
     private suspend fun fetchSuggestedRoomsOrNull(): List<ChatRoom>? =
         fetchCollection(CommunityFirestorePaths.SUGGESTED_ROOMS)
 
-    /** Returns parsed rooms on success (may be empty). Null only on network/permission failure. */
     private suspend fun fetchCollection(collection: String): List<ChatRoom>? {
-        if (!isAuthenticated()) return null
+        if (!isAuthenticated()) return emptyList()
         return try {
             val snapshot = firestore.collection(collection).get().await()
             snapshot.documents.mapNotNull { doc ->
@@ -114,12 +138,8 @@ class FirestoreCommunityRepository(
         }
     }
 
-    /**
-     * Loads messages without requiring a Firestore composite index.
-     * Tries ordered query when [createdAt] exists; otherwise falls back to plain get + in-memory sort.
-     */
     private suspend fun fetchMessagesOrNull(roomId: String): List<ChatMessage>? {
-        if (!isAuthenticated()) return null
+        if (!isAuthenticated()) return emptyList()
         val collection = messagesCollection(roomId)
         val snapshot = try {
             collection.orderBy("createdAt", Query.Direction.ASCENDING).get().await()
@@ -130,7 +150,7 @@ class FirestoreCommunityRepository(
                 return null
             }
         }
-        return mapAndSortMessages(snapshot.documents)
+        return mapAndSortMessages(snapshot.documents, currentUserId())
     }
 
     private fun messagesCollection(roomId: String) =
@@ -141,10 +161,11 @@ class FirestoreCommunityRepository(
 
     private fun mapAndSortMessages(
         documents: List<com.google.firebase.firestore.DocumentSnapshot>,
+        currentUserId: String?,
     ): List<ChatMessage> =
         documents
             .mapNotNull { doc ->
-                CommunityFirestoreMapper.toChatMessage(doc.id, doc.data)?.let { msg ->
+                CommunityFirestoreMapper.toChatMessage(doc.id, doc.data, currentUserId)?.let { msg ->
                     doc to msg
                 }
             }
@@ -155,6 +176,11 @@ class FirestoreCommunityRepository(
         collection: String,
         fallbackSupplier: () -> List<ChatRoom>,
     ): Flow<List<ChatRoom>> = callbackFlow {
+        if (!isAuthenticated()) {
+            trySend(emptyList())
+            awaitClose { }
+            return@callbackFlow
+        }
         val registration = firestore.collection(collection).addSnapshotListener { snapshot, error ->
             if (error != null) {
                 trySend(fallbackSupplier())

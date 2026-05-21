@@ -9,11 +9,14 @@ data class AuthSessionState(
     val isAuthenticated: Boolean = false,
     val uid: String? = null,
     val email: String? = null,
-)
+) {
+    /** Firestore rules require a signed-in Firebase user. */
+    val canAccessFirestore: Boolean get() = isAuthenticated
+}
 
 /**
- * Single source of truth for Firebase Auth session across ViewModels.
- * Keeps UI state in sync when sign-in/sign-out happens outside [AuthViewModel].
+ * Single source of truth for Firebase Auth session across the app.
+ * Backed by [FirebaseAuth] + [FirebaseAuth.AuthStateListener].
  */
 object AuthSession {
 
@@ -37,6 +40,16 @@ object AuthSession {
 
     fun refresh() {
         _state.value = readCurrentState()
+    }
+
+    fun isAuthenticated(): Boolean {
+        ensureStarted()
+        return _state.value.isAuthenticated
+    }
+
+    fun currentUserId(): String? {
+        ensureStarted()
+        return _state.value.uid
     }
 
     private fun readCurrentState(): AuthSessionState {

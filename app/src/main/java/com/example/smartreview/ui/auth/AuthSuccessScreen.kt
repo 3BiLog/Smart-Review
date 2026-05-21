@@ -14,229 +14,148 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.smartreview.ui.theme.*
 
 @Composable
-fun AuthSuccessScreen(onDone: () -> Unit) {
-
-    // Entrance animation
+fun AuthSuccessScreen(
+    onDone: () -> Unit,
+    vm: AuthViewModel,
+) {
+    val state by vm.uiState.collectAsStateWithLifecycle()
+    val displayName = state.fullName.ifBlank { state.currentUserEmail.orEmpty() }
+    val email = state.currentUserEmail.orEmpty()
     var visible by remember { mutableStateOf(false) }
     val alpha by animateFloatAsState(
-        targetValue   = if (visible) 1f else 0f,
+        targetValue = if (visible) 1f else 0f,
         animationSpec = tween(700, easing = EaseOut),
-        label         = "successFadeIn",
+        label = "successFadeIn",
     )
-    // Scale-in for check circle
     val scale by animateFloatAsState(
-        targetValue   = if (visible) 1f else 0.4f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
-        label         = "circleScale",
+        targetValue = if (visible) 1f else 0.4f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "circleScale",
     )
     LaunchedEffect(Unit) { visible = true }
 
+    val resolvedName = displayName.trim().ifBlank {
+        email.substringBefore("@").ifBlank { "SmartReview User" }
+    }
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Background)
             .alpha(alpha),
     ) {
-        // Background image (low opacity)
-        AsyncImage(
-            model              = "https://picsum.photos/seed/success_bg/800/1200",
-            contentDescription = null,
-            contentScale       = ContentScale.Crop,
-            modifier           = Modifier.fillMaxSize().alpha(0.10f),
-        )
-
         AuthBackgroundOrbs()
 
-        // Simplified top bar
-        Surface(
-            color    = GlassBg,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .systemBarsPadding(),
-        ) {
-            Row(
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier              = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            ) {
-                Text(
-                    "SMART REVIEW",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        brush      = Brush.linearGradient(listOf(GradientStart, GradientEnd)),
-                        fontWeight = FontWeight.Bold,
-                    ),
-                )
-                IconButton(onClick = {}) {
-                    Icon(Icons.Default.HelpOutline, null, tint = OnSurfaceVariant)
-                }
-            }
-        }
-
-        // Main card (centered)
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier         = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp),
+                .systemBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 32.dp),
         ) {
-            Surface(
-                color    = GlassBg,
-                shape    = RoundedCornerShape(24.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, GlassBorder, RoundedCornerShape(24.dp)),
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier            = Modifier.padding(32.dp),
-                ) {
+            AuthBrandSection(subtitle = "Tài khoản của bạn đã sẵn sàng")
 
-                    // ── Animated check circle ─────────────────────────────
+            Spacer(Modifier.height(32.dp))
+
+            AuthFormCard {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                ) {
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier         = Modifier
-                            .size(120.dp)
-                            .then(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }),
+                        modifier = Modifier
+                            .size(96.dp)
+                            .graphicsLayer { scaleX = scale; scaleY = scale },
                     ) {
-                        // Glow halo
-                        Box(
-                            modifier = Modifier
-                                .size(120.dp)
-                                .background(
-                                    Brush.radialGradient(listOf(GradientStart.copy(0.35f), Color.Transparent)),
-                                    CircleShape,
-                                )
-                        )
-                        // Gradient circle
                         Box(
                             modifier = Modifier
                                 .size(96.dp)
+                                .background(
+                                    Brush.radialGradient(
+                                        listOf(GradientStart.copy(0.35f), Color.Transparent),
+                                    ),
+                                    CircleShape,
+                                ),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
                                 .clip(CircleShape)
                                 .background(Brush.linearGradient(listOf(GradientStart, GradientEnd))),
                         ) {
                             Icon(
                                 Icons.Default.Check,
                                 contentDescription = null,
-                                tint     = Color.White,
+                                tint = Color.White,
                                 modifier = Modifier
-                                    .size(52.dp)
+                                    .size(44.dp)
                                     .align(Alignment.Center),
                             )
                         }
                     }
+                }
 
-                    // ── "Success" gradient text ───────────────────────────
-                    Text(
-                        text  = "Success",
-                        style = MaterialTheme.typography.headlineLarge.copy(
-                            brush      = Brush.linearGradient(listOf(GradientStart, GradientEnd)),
-                            fontWeight = FontWeight.Bold,
-                        ),
-                    )
+                Text(
+                    text = "Đăng ký thành công!",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        brush = Brush.linearGradient(listOf(GradientStart, GradientEnd)),
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-                    Text(
-                        text      = "Congratulations, you have completed your registration!",
-                        style     = MaterialTheme.typography.bodyLarge,
-                        color     = OnSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
+                Text(
+                    text = "Chào mừng $resolvedName. Hồ sơ Firestore và phiên đăng nhập đã được thiết lập.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = OnSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
 
-                    Spacer(Modifier.height(4.dp))
-
-                    // ── Done button ───────────────────────────────────────
-                    GradientAuthButton(
-                        text     = "Done",
-                        onClick  = onDone,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    // ── Divider + profile ─────────────────────────────────
-                    HorizontalDivider(color = GlassBorder)
-
+                if (email.isNotBlank()) {
                     Row(
-                        verticalAlignment     = Alignment.CenterVertically,
+                        verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
-                        modifier              = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .border(2.dp, Primary.copy(0.4f), CircleShape),
-                        ) {
-                            AsyncImage(
-                                model              = "https://picsum.photos/seed/done_user/80/80",
-                                contentDescription = null,
-                                contentScale       = ContentScale.Crop,
-                                modifier           = Modifier.fillMaxSize(),
-                            )
-                        }
+                        Icon(Icons.Default.Mail, null, tint = Primary, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Setup complete for Guest User",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = OnSurfaceVariant,
-                        )
+                        Text(email, style = MaterialTheme.typography.labelMedium, color = OnSurface)
                     }
                 }
+
+                GradientAuthButton(
+                    text = "Bắt đầu học ngay",
+                    onClick = onDone,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
-            // ── Decorative corner chips ───────────────────────────────────
-            Surface(
-                color    = GlassBg,
-                shape    = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .size(48.dp)
-                    .align(Alignment.TopEnd)
-                    .offset(x = 16.dp, y = (-16).dp)
-                    .rotate(12f)
-                    .border(1.dp, GlassBorder, RoundedCornerShape(12.dp)),
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Icon(Icons.Default.Celebration, null, tint = Primary, modifier = Modifier.size(22.dp))
-                }
-            }
-            Surface(
-                color    = GlassBg,
-                shape    = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .size(56.dp)
-                    .align(Alignment.BottomStart)
-                    .offset(x = (-16).dp, y = 16.dp)
-                    .rotate(-12f)
-                    .border(1.dp, GlassBorder, RoundedCornerShape(12.dp)),
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Icon(Icons.Default.Verified, null, tint = Secondary, modifier = Modifier.size(26.dp))
-                }
-            }
         }
     }
 }
-
-// graphicsLayer helper extension
-private fun Modifier.graphicsLayer(block: androidx.compose.ui.graphics.GraphicsLayerScope.() -> Unit): Modifier =
-    this.then(Modifier.graphicsLayer(block))
 
 @Preview(showBackground = true, backgroundColor = 0xFF1C1B1F, widthDp = 390, heightDp = 844)
 @Composable
 private fun AuthSuccessPreview() {
     com.example.smartreview.ui.theme.SmartReviewTheme {
-        AuthSuccessScreen(onDone = {})
+        // Preview uses a lightweight stub — real screen reads [AuthViewModel] state.
+        AuthSuccessScreen(onDone = {}, vm = AuthViewModel())
     }
 }

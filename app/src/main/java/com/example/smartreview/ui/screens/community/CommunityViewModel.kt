@@ -19,6 +19,8 @@ data class CommunityUiState(
     val selectedFilter: String = "Tất cả",
     val filters: List<String> = listOf("Tất cả", "Đang theo dõi", "Phổ biến"),
     val suggestedRooms: List<ChatRoom> = emptyList(),
+    val isAuthenticated: Boolean = false,
+    val authRequiredMessage: String? = null,
 )
 
 class CommunityViewModel(
@@ -30,9 +32,10 @@ class CommunityViewModel(
 
     init {
         AuthSession.ensureStarted()
-        loadRooms()
         viewModelScope.launch {
-            AuthSession.state.collect { loadRooms() }
+            AuthSession.state.collect { session ->
+                loadRooms(session.isAuthenticated)
+            }
         }
     }
 
@@ -48,15 +51,36 @@ class CommunityViewModel(
         _uiState.update { it.copy(selectedFilter = filter) }
     }
 
-    fun refreshRooms() = loadRooms()
+    fun refreshRooms() {
+        loadRooms(AuthSession.state.value.isAuthenticated)
+    }
 
-    private fun loadRooms() {
+    private fun loadRooms(isAuthenticated: Boolean) {
+        if (!isAuthenticated) {
+            _uiState.update {
+                it.copy(
+                    isAuthenticated = false,
+                    rooms = emptyList(),
+                    filteredRooms = emptyList(),
+                    suggestedRooms = emptyList(),
+                    authRequiredMessage = "Đăng nhập để xem và tham gia phòng chat trên Firestore.",
+                )
+            }
+            return
+        }
+
         val rooms = communityRepository.getRooms()
         val suggested = communityRepository.getSuggestedRooms()
         _uiState.update { state ->
             val filtered = if (state.searchQuery.isBlank()) rooms
             else rooms.filter { it.name.contains(state.searchQuery, ignoreCase = true) }
-            state.copy(rooms = rooms, filteredRooms = filtered, suggestedRooms = suggested)
+            state.copy(
+                isAuthenticated = true,
+                rooms = rooms,
+                filteredRooms = filtered,
+                suggestedRooms = suggested,
+                authRequiredMessage = null,
+            )
         }
     }
 }

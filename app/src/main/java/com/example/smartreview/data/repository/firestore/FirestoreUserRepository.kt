@@ -9,6 +9,10 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
 
@@ -32,6 +36,48 @@ class FirestoreUserRepository(
 
     override suspend fun getUserProfile(uid: String): UserProfile? = withContext(Dispatchers.IO) {
         fetchUserProfile(uid)
+    }
+
+    override fun observeCurrentUserProfile(): Flow<UserProfile?> = callbackFlow {
+        val uid = firebaseAuth.currentUser?.uid
+        if (uid == null) {
+            trySend(null)
+            awaitClose { }
+            return@callbackFlow
+        }
+        val registration = userDocument(uid).addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                trySend(null)
+                return@addSnapshotListener
+            }
+            val profile = if (snapshot?.exists() == true) {
+                UserFirestoreMapper.toUserProfile(snapshot.id, snapshot.data)
+            } else {
+                null
+            }
+            trySend(profile)
+        }
+        awaitClose { registration.remove() }
+    }.flowOn(Dispatchers.IO)
+
+    override suspend fun updateCurrentUserProfile(
+        displayName: String,
+        phone: String,
+    ): Boolean = withContext(Dispatchers.IO) {
+        val uid = firebaseAuth.currentUser?.uid ?: return@withContext false
+        val trimmedName = displayName.trim()
+        if (trimmedName.isBlank()) return@withContext false
+        try {
+            userDocument(uid)
+                .set(
+                    UserFirestoreMapper.profileUpdateMap(trimmedName, phone),
+                    SetOptions.merge(),
+                )
+                .await()
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     override suspend fun ensureUserProfileExists(

@@ -28,6 +28,8 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.smartreview.data.model.ChatRoom
 import com.example.smartreview.data.model.RoomIconType
+import com.example.smartreview.ui.auth.AuthRoutes
+import com.example.smartreview.ui.components.AuthRequiredBanner
 import com.example.smartreview.ui.components.SmartReviewBottomBar
 import com.example.smartreview.ui.screens.leaderboard.LEADERBOARD_ROUTE
 import com.example.smartreview.ui.theme.*
@@ -78,6 +80,21 @@ fun CommunityRoomsScreen(
                     onFilterSelect = { vm.onFilterSelect(it) },
                     modifier       = Modifier.padding(16.dp),
                 )
+            }
+
+            state.authRequiredMessage?.let { message ->
+                item {
+                    AuthRequiredBanner(
+                        message = message,
+                        actionLabel = "Đăng nhập",
+                        onAction = {
+                            navController.navigate(AuthRoutes.GRAPH) {
+                                launchSingleTop = true
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
             }
 
             // ── Search bar ────────────────────────────────────────────────

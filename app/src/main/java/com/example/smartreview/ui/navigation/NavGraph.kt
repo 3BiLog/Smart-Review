@@ -17,8 +17,16 @@ import com.example.smartreview.ui.screens.courses.CourseListScreen
 import com.example.smartreview.ui.screens.courses.COURSES_LIST_ROUTE
 import com.example.smartreview.ui.screens.coursedetail.CourseDetailScreen
 import com.example.smartreview.ui.screens.coursedetail.COURSE_DETAIL_ROUTE
+import com.example.smartreview.ui.screens.lesson.LessonScreen
+import com.example.smartreview.ui.screens.lesson.LESSON_ROUTE
 import com.example.smartreview.ui.screens.lessonplayer.LessonVideoPlayerScreen
 import com.example.smartreview.ui.screens.lessonplayer.LESSON_PLAYER_ROUTE
+import com.example.smartreview.ui.screens.lessonsummary.LESSON_SUMMARY_ROUTE
+import com.example.smartreview.ui.screens.lessonsummary.LessonSummaryScreen
+import com.example.smartreview.ui.screens.quiz.QUIZ_ROUTE
+import com.example.smartreview.ui.screens.quiz.QuizScreen
+import com.example.smartreview.ui.screens.quizsummary.QUIZ_SUMMARY_ROUTE
+import com.example.smartreview.ui.screens.quizsummary.QuizSummaryScreen
 import com.example.smartreview.ui.screens.search.SEARCH_ROUTE
 import com.example.smartreview.ui.screens.search.SearchScreen
 import com.example.smartreview.ui.screens.community.CommunityRoomsScreen
@@ -78,8 +86,14 @@ fun SmartReviewNavGraph(navController: NavHostController) {
         composable(Screen.Flashcard.route) { FlashcardScreen(navController) }
         composable(Screen.Pomodoro.route)  { PomodoroScreen(navController) }
         composable(Screen.Profile.route)   { ProfileScreen(navController) }
-        composable(FLASHCARD_SUMMARY_ROUTE) {
-            FlashcardSummaryScreen(navController = navController)
+        composable(
+            route = FLASHCARD_SUMMARY_ROUTE,
+            arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            FlashcardSummaryScreen(
+                navController = navController,
+                sessionId = backStackEntry.arguments?.getString("sessionId").orEmpty(),
+            )
         }
         composable(COURSES_LIST_ROUTE) {
             CourseListScreen(navController = navController)
@@ -102,6 +116,46 @@ fun SmartReviewNavGraph(navController: NavHostController) {
             LessonVideoPlayerScreen(
                 navController = navController,
                 lessonId      = backStackEntry.arguments?.getString("lessonId") ?: "",
+            )
+        }
+
+        composable(
+            route = LESSON_ROUTE,
+            arguments = listOf(navArgument("lessonId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            LessonScreen(
+                navController = navController,
+                lessonId = backStackEntry.arguments?.getString("lessonId").orEmpty(),
+            )
+        }
+
+        composable(
+            route = LESSON_SUMMARY_ROUTE,
+            arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            LessonSummaryScreen(
+                navController = navController,
+                sessionId = backStackEntry.arguments?.getString("sessionId").orEmpty(),
+            )
+        }
+
+        composable(
+            route = QUIZ_ROUTE,
+            arguments = listOf(navArgument("quizId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            QuizScreen(
+                navController = navController,
+                quizId = backStackEntry.arguments?.getString("quizId").orEmpty(),
+            )
+        }
+
+        composable(
+            route = QUIZ_SUMMARY_ROUTE,
+            arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            QuizSummaryScreen(
+                navController = navController,
+                sessionId = backStackEntry.arguments?.getString("sessionId").orEmpty(),
             )
         }
 

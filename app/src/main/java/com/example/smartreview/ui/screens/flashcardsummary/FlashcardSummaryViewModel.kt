@@ -1,7 +1,12 @@
 package com.example.smartreview.ui.screens.flashcardsummary
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.smartreview.data.flashcard.FlashcardSessionStore
+import com.example.smartreview.data.gamification.GamificationRewardResult
+import com.example.smartreview.data.model.FlashcardSessionResult
+import com.example.smartreview.data.repository.GamificationServiceProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -9,59 +14,41 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// ─── Data model ──────────────────────────────────────────────────────────────
-
 data class FlashcardSummaryUiState(
-    /** XP earned in this session */
-    val xpEarned: Int = 30,
-
-    /** 0f → 1f, e.g. 0.8f = 80 % */
-    val accuracy: Float = 0.80f,
-
-    /** Number of cards marked "known" */
-    val knownCount: Int = 24,
-
-    /** Number of cards to review again */
-    val reviewCount: Int = 6,
-
-    /** Consecutive study-day streak */
-    val streakDays: Int = 5,
-
-    /** Study time formatted as "mm:ss" */
-    val studyTime: String = "12:45",
-
-    /**
-     * Controls the animated ring progress (starts at 0, animates to [accuracy]).
-     * Separated so we can drive a smooth launch animation without touching the
-     * rest of the state.
-     */
+    val xpEarned: Int = 0,
+    val accuracy: Float = 0f,
+    val knownCount: Int = 0,
+    val reviewCount: Int = 0,
+    val streakDays: Int = 0,
+    val studyTime: String = "00:00",
     val animatedAccuracy: Float = 0f,
-
-    /** True while the "next" navigation is processing */
     val isNavigating: Boolean = false,
+    val hasSessionData: Boolean = false,
 )
 
-// ─── ViewModel ────────────────────────────────────────────────────────────────
+class FlashcardSummaryViewModel(
+    private val sessionId: String,
+) : ViewModel() {
 
-class FlashcardSummaryViewModel : ViewModel() {
+    private val gamificationService = GamificationServiceProvider.default
 
     private val _uiState = MutableStateFlow(FlashcardSummaryUiState())
     val uiState: StateFlow<FlashcardSummaryUiState> = _uiState.asStateFlow()
 
     init {
-        loadMockData()
+        val session = FlashcardSessionStore.consume(sessionId)
+        if (session != null) {
+            applySession(session)
+            awardFlashcardXp(session.sessionId)
+        }
         animateAccuracyRing()
     }
-
-    // ------------------------------------------------------------------
-    // Public API
-    // ------------------------------------------------------------------
 
     fun onNextClicked(onNavigate: () -> Unit) {
         if (_uiState.value.isNavigating) return
         _uiState.update { it.copy(isNavigating = true) }
         viewModelScope.launch {
-            delay(300)                // brief ripple feedback
+            delay(300)
             onNavigate()
             _uiState.update { it.copy(isNavigating = false) }
         }
@@ -74,40 +61,54 @@ class FlashcardSummaryViewModel : ViewModel() {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Private helpers
-    // ------------------------------------------------------------------
-
-    /**
-     * In a real app this would accept a [FlashcardResult] from the
-     * previous screen (passed via SavedStateHandle or shared ViewModel).
-     * Here we keep mock data so the screen runs standalone.
-     */
-    private fun loadMockData() {
+    private fun applySession(session: FlashcardSessionResult) {
         _uiState.update {
             it.copy(
-                xpEarned    = 30,
-                accuracy    = 0.80f,
-                knownCount  = 24,
-                reviewCount = 6,
-                streakDays  = 5,
-                studyTime   = "12:45",
+                accuracy = session.accuracy,
+                knownCount = session.knownCount,
+                reviewCount = session.reviewCount,
+                studyTime = session.formattedStudyTime(),
+                hasSessionData = true,
             )
         }
     }
 
-    /** Animate the SVG-style ring from 0 → target accuracy over ~900 ms */
+    private fun awardFlashcardXp(rewardSessionId: String) {
+        viewModelScope.launch {
+            when (val result = gamificationService.rewardFlashcardSession(rewardSessionId)) {
+                is GamificationRewardResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            xpEarned = result.xpAwarded,
+                            streakDays = result.newStreak,
+                        )
+                    }
+                }
+                is GamificationRewardResult.AlreadyProcessed -> Unit
+                else -> Unit
+            }
+        }
+    }
+
     private fun animateAccuracyRing() {
         viewModelScope.launch {
-            val target  = _uiState.value.accuracy
-            val steps   = 60
+            val target = _uiState.value.accuracy
+            val steps = 60
             val delayMs = 900L / steps
             repeat(steps) { i ->
                 delay(delayMs)
                 _uiState.update { it.copy(animatedAccuracy = target * (i + 1f) / steps) }
             }
-            // clamp to exact value
             _uiState.update { it.copy(animatedAccuracy = target) }
         }
+    }
+
+    companion object {
+        fun provideFactory(sessionId: String): ViewModelProvider.Factory =
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    FlashcardSummaryViewModel(sessionId) as T
+            }
     }
 }

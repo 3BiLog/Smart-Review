@@ -4,6 +4,8 @@ import com.example.smartreview.data.model.ChatMessage
 import com.example.smartreview.data.model.ChatRoom
 import com.example.smartreview.data.model.MessageType
 import com.example.smartreview.data.model.RoomIconType
+import com.example.smartreview.data.model.withCurrentUserOwnership
+import com.example.smartreview.data.util.ChatTimeFormatter
 import com.google.firebase.Timestamp
 
 object CommunityFirestoreMapper {
@@ -35,6 +37,7 @@ object CommunityFirestoreMapper {
         if (type != MessageType.DATE_SEPARATOR && content.isBlank() && dto.imageUrl.isNullOrBlank()) {
             return null
         }
+        // Ownership is never read from Firestore — resolved via senderId + FirebaseAuth uid.
         return ChatMessage(
             id = messageId,
             senderId = dto.senderId.orEmpty(),
@@ -44,9 +47,15 @@ object CommunityFirestoreMapper {
             time = resolveMessageTime(dto),
             type = type,
             imageUrl = dto.imageUrl,
-            isCurrentUser = dto.isCurrentUser ?: false,
+            isCurrentUser = false,
         )
     }
+
+    fun toChatMessage(
+        messageId: String,
+        data: Map<String, Any>?,
+        currentUserId: String?,
+    ): ChatMessage? = toChatMessage(messageId, data)?.withCurrentUserOwnership(currentUserId)
 
     /** Sort key for in-memory ordering when Firestore query has no orderBy. */
     fun messageSortKey(data: Map<String, Any>?): Long {
@@ -60,9 +69,8 @@ object CommunityFirestoreMapper {
             "senderName" to message.senderName,
             "senderAvatar" to message.senderAvatar,
             "content" to message.content,
-            "time" to message.time,
+            "time" to ChatTimeFormatter.format(createdAt),
             "type" to message.type.name,
-            "isCurrentUser" to message.isCurrentUser,
             "createdAt" to createdAt,
         )
         message.imageUrl?.takeIf { it.isNotBlank() }?.let { fields["imageUrl"] = it }
@@ -78,16 +86,11 @@ object CommunityFirestoreMapper {
     }
 
     private fun resolveMessageTime(dto: ChatMessageDocument): String {
-        dto.time?.takeIf { it.isNotBlank() }?.let { return it }
-        dto.createdAt?.let { return formatEpochMillis(it) }
-        return ""
-    }
-
-    private fun formatEpochMillis(epochMs: Long): String {
-        val cal = java.util.Calendar.getInstance().apply { timeInMillis = epochMs }
-        val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
-        val minute = cal.get(java.util.Calendar.MINUTE)
-        return "%d:%02d".format(hour, minute)
+        dto.createdAt?.let { return ChatTimeFormatter.format(it) }
+        val legacy = dto.time?.takeIf {
+            it.isNotBlank() && !ChatTimeFormatter.isLegacyPlaceholderTime(it)
+        }
+        return legacy.orEmpty()
     }
 
     private fun mapToRoomDocument(data: Map<String, Any?>): ChatRoomDocument =

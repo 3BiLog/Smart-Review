@@ -21,4 +21,10 @@ interface CommunityRealtimeRepository {
      * @return auto-generated document id on success, null on failure (caller may keep a local-only copy).
      */
     suspend fun sendMessage(roomId: String, message: ChatMessage): String?
+
+    /**
+     * Deletes a message document when [messageId] belongs to the signed-in user.
+     * @return true when the document was removed, false when denied or failed.
+     */
+    suspend fun deleteMessage(roomId: String, messageId: String): Boolean
 }

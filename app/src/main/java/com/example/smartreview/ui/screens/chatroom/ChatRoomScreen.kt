@@ -2,6 +2,7 @@ package com.example.smartreview.ui.screens.chatroom
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,6 +40,31 @@ fun ChatRoomScreen(
     val state     by vm.uiState.collectAsStateWithLifecycle()
     val listState  = rememberLazyListState()
     val scope      = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.deleteError) {
+        state.deleteError?.let { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    if (state.pendingDeleteMessageId != null) {
+        AlertDialog(
+            onDismissRequest = { vm.dismissDeleteRequest() },
+            title = { Text("Xóa tin nhắn?") },
+            text = { Text("Tin nhắn sẽ bị xóa vĩnh viễn khỏi phòng chat.") },
+            confirmButton = {
+                TextButton(onClick = { vm.confirmDeleteMessage() }) {
+                    Text("Xóa", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { vm.dismissDeleteRequest() }) {
+                    Text("Hủy")
+                }
+            },
+        )
+    }
 
     // Scroll to bottom when messages change
     LaunchedEffect(state.messages.size) {
@@ -49,6 +75,7 @@ fun ChatRoomScreen(
     Scaffold(
         modifier       = Modifier.imePadding(),
         containerColor = Background,
+        snackbarHost   = { SnackbarHost(snackbarHostState) },
         topBar         = {
             ChatTopBar(
                 roomName    = state.roomName,
@@ -75,7 +102,14 @@ fun ChatRoomScreen(
             items(state.messages, key = { it.id }) { message ->
                 when (message.type) {
                     MessageType.DATE_SEPARATOR -> DateSeparator(message.content)
-                    MessageType.TEXT           -> TextMessageBubble(message)
+                    MessageType.TEXT           -> TextMessageBubble(
+                        message = message,
+                        onDeleteRequest = if (message.isCurrentUser) {
+                            { vm.requestDeleteMessage(message.id) }
+                        } else {
+                            null
+                        },
+                    )
                     MessageType.IMAGE          -> ImageMessageBubble(message)
                 }
             }
@@ -176,7 +210,10 @@ private fun DateSeparator(label: String) {
 }
 
 @Composable
-private fun TextMessageBubble(message: ChatMessage) {
+private fun TextMessageBubble(
+    message: ChatMessage,
+    onDeleteRequest: (() -> Unit)? = null,
+) {
     if (message.isCurrentUser) {
         // Sent – right-aligned, gradient bubble
         Column(
@@ -186,6 +223,16 @@ private fun TextMessageBubble(message: ChatMessage) {
             Box(
                 modifier = Modifier
                     .widthIn(max = 280.dp)
+                    .then(
+                        if (onDeleteRequest != null) {
+                            Modifier.combinedClickable(
+                                onClick = {},
+                                onLongClick = onDeleteRequest,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp))
                     .background(Brush.linearGradient(listOf(GradientStart, GradientEnd)))
                     .padding(12.dp),

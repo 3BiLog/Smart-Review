@@ -11,22 +11,33 @@ import com.example.smartreview.data.repository.UserRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class ProfileUiState(
-    val avatarUrl:         String  = "https://picsum.photos/seed/profile/200/200",
-    val displayName:       String  = "Alex Mercer",
-    val levelLabel:        String  = "Level 42 Learner",
-    val fullName:          String  = "Alex Mercer",
-    val email:             String  = "alex.mercer@example.com",
-    val phone:             String  = "+1 (555) 019-2834",
-    val dailyGoalMinutes:  Int     = 30,   // 15 | 30 | 60
-    val darkModeEnabled:   Boolean = true,
-    val notificationsOn:   Boolean = true,
-    val streak:            Int     = 0,
-    val xp:                Int     = 0,
-    val isLoadingProfile:  Boolean = false,
+    val avatarUrl: String = "https://picsum.photos/seed/profile/200/200",
+    val displayName: String = "Alex Mercer",
+    val levelLabel: String = "Level 42 Learner",
+    val fullName: String = "Alex Mercer",
+    val email: String = "alex.mercer@example.com",
+    val phone: String = "",
+    val dailyGoalMinutes: Int = 30,
+    val darkModeEnabled: Boolean = true,
+    val notificationsOn: Boolean = true,
+    val streak: Int = 0,
+    val xp: Int = 0,
+    val isLoadingProfile: Boolean = false,
+    val isSavingProfile: Boolean = false,
+    val isAuthenticated: Boolean = false,
+    val isEditMode: Boolean = false,
+    val profileMessage: String? = null,
+    /** Snapshot for cancel — populated when profile loads from Firestore. */
+    val savedFullName: String = "",
+    val savedPhone: String = "",
 )
 
 class ProfileViewModel(
@@ -39,23 +50,98 @@ class ProfileViewModel(
 
     init {
         AuthSession.ensureStarted()
-        loadUserProfile()
         viewModelScope.launch {
             AuthSession.state.collect { session ->
+                _uiState.update { it.copy(isAuthenticated = session.isAuthenticated) }
                 if (session.isAuthenticated) loadUserProfile()
                 else resetToGuestDefaults()
             }
+        }
+        observeProfileRealtime()
+    }
+
+    private fun observeProfileRealtime() {
+        viewModelScope.launch {
+            AuthSession.state
+                .map { it.isAuthenticated }
+                .distinctUntilChanged()
+                .flatMapLatest { authenticated ->
+                    if (authenticated) userRepository.observeCurrentUserProfile()
+                    else flowOf(null)
+                }
+                .collect { profile ->
+                    if (profile == null) return@collect
+                    _uiState.update { state ->
+                        if (state.isEditMode || state.isSavingProfile) state
+                        else state.applyUserProfile(profile)
+                    }
+                }
         }
     }
 
     fun refreshProfile() = loadUserProfile()
 
-    fun onFullNameChange(v: String)  = _uiState.update { it.copy(fullName = v) }
-    fun onEmailChange(v: String)     = _uiState.update { it.copy(email = v) }
-    fun onPhoneChange(v: String)     = _uiState.update { it.copy(phone = v) }
-    fun selectGoal(minutes: Int)     = _uiState.update { it.copy(dailyGoalMinutes = minutes) }
-    fun toggleDarkMode()             = _uiState.update { it.copy(darkModeEnabled = !it.darkModeEnabled) }
-    fun toggleNotifications()        = _uiState.update { it.copy(notificationsOn = !it.notificationsOn) }
+    fun enterEditMode() {
+        if (!_uiState.value.isAuthenticated) {
+            showMessage("Đăng nhập để chỉnh sửa hồ sơ.")
+            return
+        }
+        _uiState.update { it.copy(isEditMode = true, profileMessage = null) }
+    }
+
+    fun cancelEditMode() {
+        _uiState.update {
+            it.copy(
+                isEditMode = false,
+                fullName = it.savedFullName,
+                phone = it.savedPhone,
+                profileMessage = null,
+            )
+        }
+    }
+
+    fun saveProfile() {
+        if (!_uiState.value.isAuthenticated) {
+            showMessage("Đăng nhập để lưu hồ sơ.")
+            return
+        }
+        val fullName = _uiState.value.fullName.trim()
+        val phone = _uiState.value.phone.trim()
+        if (fullName.isBlank()) {
+            showMessage("Họ và tên không được để trống.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSavingProfile = true, profileMessage = null) }
+            val saved = userRepository.updateCurrentUserProfile(fullName, phone)
+            _uiState.update { state ->
+                if (saved) {
+                    state.copy(
+                        isEditMode = false,
+                        isSavingProfile = false,
+                        savedFullName = fullName,
+                        savedPhone = phone,
+                        displayName = fullName,
+                        profileMessage = "Đã lưu hồ sơ.",
+                    )
+                } else {
+                    state.copy(
+                        isSavingProfile = false,
+                        profileMessage = "Không lưu được hồ sơ. Kiểm tra đăng nhập hoặc kết nối.",
+                    )
+                }
+            }
+        }
+    }
+
+    fun dismissMessage() = _uiState.update { it.copy(profileMessage = null) }
+
+    fun onFullNameChange(v: String) = _uiState.update { it.copy(fullName = v) }
+    fun onEmailChange(v: String) = _uiState.update { it.copy(email = v) }
+    fun onPhoneChange(v: String) = _uiState.update { it.copy(phone = v) }
+    fun selectGoal(minutes: Int) = _uiState.update { it.copy(dailyGoalMinutes = minutes) }
+    fun toggleDarkMode() = _uiState.update { it.copy(darkModeEnabled = !it.darkModeEnabled) }
+    fun toggleNotifications() = _uiState.update { it.copy(notificationsOn = !it.notificationsOn) }
 
     fun logout(onLoggedOut: () -> Unit = {}) {
         authRepository.signOut()
@@ -64,23 +150,24 @@ class ProfileViewModel(
         onLoggedOut()
     }
 
+    private fun showMessage(message: String) {
+        _uiState.update { it.copy(profileMessage = message) }
+    }
+
     private fun loadUserProfile() {
+        if (!AuthSession.state.value.isAuthenticated) return
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingProfile = true) }
-            val profile = if (authRepository.isAuthenticated()) {
-                userRepository.getCurrentUserProfile()
-            } else {
-                null
-            }
+            _uiState.update { it.copy(isLoadingProfile = true, profileMessage = null) }
+            val profile = userRepository.getCurrentUserProfile()
             _uiState.update { state ->
                 if (profile != null) state.applyUserProfile(profile)
-                else state.copy(isLoadingProfile = false)
+                else state.copy(isLoadingProfile = false, isEditMode = false)
             }
         }
     }
 
     private fun resetToGuestDefaults() {
-        _uiState.value = ProfileUiState()
+        _uiState.value = ProfileUiState(isAuthenticated = false)
     }
 
     private fun ProfileUiState.applyUserProfile(profile: UserProfile): ProfileUiState = copy(
@@ -89,13 +176,19 @@ class ProfileViewModel(
         levelLabel = levelLabelFromXp(profile.xp),
         fullName = profile.displayName,
         email = profile.email,
+        phone = profile.phone,
         streak = profile.streak,
         xp = profile.xp,
         isLoadingProfile = false,
+        isSavingProfile = false,
+        isEditMode = false,
+        savedFullName = profile.displayName,
+        savedPhone = profile.phone,
+        isAuthenticated = true,
     )
 
     private fun levelLabelFromXp(xp: Int): String {
         val level = (xp / 100).coerceAtLeast(1)
-        return "Level $level Learner"
+        return "Cấp $level · Người học"
     }
 }

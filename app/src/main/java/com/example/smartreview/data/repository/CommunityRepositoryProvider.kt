@@ -6,7 +6,8 @@ import com.example.smartreview.data.repository.mock.MockCommunityRepository
 /**
  * Lightweight access point until DI (e.g. Hilt) is added.
  *
- * - [default] tries Firestore first, falls back to [mock] on error/empty/offline.
+ * - [default] uses Firestore when authenticated; mock fallback only on auth errors/offline.
+ *   Guests receive empty data (no silent mock masking).
  * - [mock] always uses local mock data (debug/tests).
  * - [realtime] exposes Firestore snapshot listeners for a future ViewModel phase.
  */

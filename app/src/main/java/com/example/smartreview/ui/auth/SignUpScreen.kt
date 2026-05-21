@@ -1,10 +1,8 @@
 package com.example.smartreview.ui.auth
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -26,11 +24,17 @@ import com.example.smartreview.ui.theme.*
 
 @Composable
 fun SignUpScreen(
-    onNavigateVerify: () -> Unit,
-    onNavigateLogin:  () -> Unit,
+    onRegisterSuccess: () -> Unit,
+    onNavigateLogin: () -> Unit,
     vm: AuthViewModel = viewModel(),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val fieldsEnabled = !state.isLoading
+    val showPasswordMismatch = state.confirmPassword.isNotEmpty() && !state.passwordsMatch
+    val fullNameOk = state.fullName.trim().length >= AuthUiState.MIN_NAME_LENGTH
+    val emailOk = state.email.contains("@") && state.email.contains(".")
+    val passwordOk = state.password.length >= AuthUiState.MIN_PASSWORD_LENGTH
+    val passwordsMatch = state.passwordsMatch
 
     Box(
         modifier = Modifier
@@ -40,117 +44,169 @@ fun SignUpScreen(
         AuthBackgroundOrbs()
 
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier            = Modifier
+            modifier = Modifier
                 .fillMaxSize()
-                .systemBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .systemBarsPadding(),
         ) {
+            AuthTopBar(title = "Đăng ký", onBack = onNavigateLogin)
 
-            // ── Brand ─────────────────────────────────────────────────────
-            AuthBrandSection(
-                icon     = Icons.Default.School,
-                subtitle = "Enter your details below & free sign up",
-            )
-
-            Spacer(Modifier.height(28.dp))
-
-            // ── Glass form card ───────────────────────────────────────────
-            Surface(
-                color    = GlassBg,
-                shape    = RoundedCornerShape(20.dp),
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, GlassBorder, RoundedCornerShape(20.dp)),
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
             ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier            = Modifier.padding(24.dp),
-                ) {
+                AuthScreenHeader(
+                    title = "Tạo tài khoản",
+                    subtitle = "Đăng ký bằng email — đồng bộ hồ sơ Firestore ngay sau khi tạo",
+                )
 
-                    // Email
+                Spacer(Modifier.height(20.dp))
+
+                AuthFormCard {
                     AuthTextField(
-                        value         = state.email,
+                        value = state.fullName,
+                        onValueChange = vm::onFullNameChange,
+                        label = "Họ và tên",
+                        leadingIcon = Icons.Default.Person,
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Next,
+                        enabled = fieldsEnabled,
+                        isError = state.fullName.isNotBlank() && !fullNameOk,
+                        supportingText = when {
+                            state.fullName.isBlank() -> "Hiển thị trên hồ sơ và bảng xếp hạng"
+                            !fullNameOk -> "Tối thiểu ${AuthUiState.MIN_NAME_LENGTH} ký tự"
+                            else -> null
+                        },
+                    )
+
+                    AuthTextField(
+                        value = state.email,
                         onValueChange = vm::onEmailChange,
-                        label         = "Your Email",
-                        leadingIcon   = Icons.Default.Mail,
-                        keyboardType  = KeyboardType.Email,
+                        label = "Email",
+                        leadingIcon = Icons.Default.Mail,
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next,
+                        enabled = fieldsEnabled,
+                        isError = state.email.isNotBlank() && !emailOk,
+                        supportingText = if (state.email.isNotBlank() && !emailOk) "Email không hợp lệ" else null,
                     )
 
-                    // Password
                     AuthPasswordField(
-                        value              = state.password,
-                        onValueChange      = vm::onPasswordChange,
-                        label              = "Password",
-                        isVisible          = state.isPasswordVisible,
+                        value = state.password,
+                        onValueChange = vm::onPasswordChange,
+                        label = "Mật khẩu",
+                        isVisible = state.isPasswordVisible,
                         onToggleVisibility = vm::togglePasswordVisibility,
-                        imeAction          = ImeAction.Done,
+                        imeAction = ImeAction.Next,
+                        enabled = fieldsEnabled,
                     )
 
-                    // Terms checkbox
+                    if (state.password.isNotEmpty()) {
+                        AuthPasswordStrengthBar(password = state.password)
+                    }
+
+                    AuthPasswordField(
+                        value = state.confirmPassword,
+                        onValueChange = vm::onConfirmPasswordChange,
+                        label = "Xác nhận mật khẩu",
+                        isVisible = state.isConfirmPasswordVisible,
+                        onToggleVisibility = vm::toggleConfirmPasswordVisibility,
+                        imeAction = ImeAction.Done,
+                        onImeAction = { if (state.isSignUpFormValid) vm.register(onRegisterSuccess) },
+                        enabled = fieldsEnabled,
+                        isError = showPasswordMismatch,
+                        supportingText = when {
+                            showPasswordMismatch -> "Mật khẩu xác nhận không khớp"
+                            else -> "Nhập lại mật khẩu để xác nhận"
+                        },
+                    )
+
+                    AuthSignUpChecklist(
+                        fullNameOk = fullNameOk,
+                        emailOk = emailOk,
+                        passwordOk = passwordOk,
+                        passwordsMatch = passwordsMatch,
+                        termsOk = state.termsAccepted,
+                    )
+
                     Row(
                         verticalAlignment = Alignment.Top,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Checkbox(
-                            checked         = state.termsAccepted,
+                            checked = state.termsAccepted,
                             onCheckedChange = { vm.onTermsToggle() },
-                            colors          = CheckboxDefaults.colors(
-                                checkedColor   = Primary,
+                            enabled = fieldsEnabled,
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Primary,
                                 uncheckedColor = OnSurfaceVariant,
                             ),
                         )
                         Text(
-                            text  = buildAnnotatedString {
-                                append("By creating an account you have to agree with our ")
+                            text = buildAnnotatedString {
+                                append("Tôi đồng ý với ")
                                 withStyle(SpanStyle(color = Primary, fontWeight = FontWeight.SemiBold)) {
-                                    append("Terms & Conditions.")
+                                    append("Điều khoản & Chính sách")
                                 }
+                                append(" của SmartReview.")
                             },
-                            style    = MaterialTheme.typography.bodySmall,
-                            color    = OnSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = OnSurfaceVariant,
                             modifier = Modifier.padding(top = 12.dp),
                         )
                     }
 
-                    // Error
-                    state.error?.let { err ->
-                        Text(err, color = ErrorColor, style = MaterialTheme.typography.labelSmall)
-                    }
+                    state.error?.let { err -> AuthErrorBanner(err) }
 
-                    // Sign up button
                     GradientAuthButton(
-                        text      = "Create account →",
-                        onClick   = { vm.register(onNavigateVerify) },
-                        enabled   = state.isSignUpFormValid,
+                        text = "Tạo tài khoản",
+                        onClick = { vm.register(onRegisterSuccess) },
+                        enabled = state.isSignUpFormValid && fieldsEnabled,
                         isLoading = state.isLoading,
-                        modifier  = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
+
+                Spacer(Modifier.height(20.dp))
+
+                AuthDivider(label = "Hoặc đăng ký với", modifier = Modifier.fillMaxWidth())
+
+                Spacer(Modifier.height(12.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    SocialLoginButton(
+                        label = "Google",
+                        onClick = { vm.showSocialLoginUnavailable() },
+                        modifier = Modifier.weight(1f),
+                        enabled = fieldsEnabled,
+                    )
+                    SocialLoginButton(
+                        label = "Apple",
+                        onClick = { vm.showSocialLoginUnavailable() },
+                        modifier = Modifier.weight(1f),
+                        enabled = fieldsEnabled,
+                    )
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                AuthFooterText(
+                    prefix = "Đã có tài khoản?",
+                    linkText = "Đăng nhập",
+                    onClick = onNavigateLogin,
+                )
+
+                Spacer(Modifier.height(16.dp))
             }
-
-            Spacer(Modifier.height(24.dp))
-
-            // ── Divider + Social ──────────────────────────────────────────
-            AuthDivider(label = "Or sign up with", modifier = Modifier.fillMaxWidth())
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                SocialLoginButton("Google", onClick = { vm.showSocialLoginUnavailable() }, modifier = Modifier.weight(1f))
-                SocialLoginButton("Apple",  onClick = { vm.showSocialLoginUnavailable() }, modifier = Modifier.weight(1f))
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            AuthFooterText(
-                prefix   = "Already have an account?",
-                linkText = "Log in",
-                onClick  = onNavigateLogin,
-            )
         }
+
+        AuthLoadingOverlay(isLoading = state.isLoading, message = "Đang tạo tài khoản...")
     }
 }
 
@@ -158,6 +214,6 @@ fun SignUpScreen(
 @Composable
 private fun SignUpPreview() {
     com.example.smartreview.ui.theme.SmartReviewTheme {
-        SignUpScreen(onNavigateVerify = {}, onNavigateLogin = {})
+        SignUpScreen(onRegisterSuccess = {}, onNavigateLogin = {})
     }
 }

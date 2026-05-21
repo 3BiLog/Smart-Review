@@ -12,7 +12,10 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -29,6 +32,14 @@ fun HomeScreen(
     vm: HomeViewModel = viewModel(),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) vm.refreshResumeLearning()
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
         containerColor = Background,
@@ -60,20 +71,41 @@ fun HomeScreen(
             Spacer(Modifier.height(24.dp))
 
             SectionHeader(
-                title = "Continue Learning",
+                title = if (state.resumeLearning.isNotEmpty()) "Tiếp tục học" else "Continue Learning",
                 linkText = "Xem tất cả",
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
             Spacer(Modifier.height(12.dp))
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(state.continueCourses) { course ->
-                    HomeContinueCourseCard(
-                        card = course,
-                        onClick = { navController.navigate(Screen.Flashcard.route) },
-                    )
+            if (state.resumeLearning.isNotEmpty()) {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(state.resumeLearning, key = { "${it.type}_${it.contentId}" }) { item ->
+                        HomeContinueCourseCard(
+                            card = CourseCard(
+                                id = item.contentId,
+                                title = item.title,
+                                subtitle = item.subtitle,
+                                imageUrl = item.imageUrl,
+                                progress = item.progressPercent,
+                                timeLeft = "Đang học dở",
+                            ),
+                            onClick = { navController.navigate(item.route) },
+                        )
+                    }
+                }
+            } else {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(state.continueCourses) { course ->
+                        HomeContinueCourseCard(
+                            card = course,
+                            onClick = { navController.navigate(Screen.Flashcard.route) },
+                        )
+                    }
                 }
             }
 

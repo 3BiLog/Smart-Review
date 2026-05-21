@@ -28,6 +28,8 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.smartreview.data.model.LeaderboardEntry
 import com.example.smartreview.data.model.LeaderboardTab
+import com.example.smartreview.ui.auth.AuthRoutes
+import com.example.smartreview.ui.components.AuthRequiredBanner
 import com.example.smartreview.ui.components.SmartReviewBottomBar
 import com.example.smartreview.ui.theme.*
 
@@ -61,6 +63,32 @@ fun LeaderboardScreen(
             // ── Live indicator ────────────────────────────────────────────
             item {
                 LiveIndicatorRow(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+
+            if (!state.isAuthenticated) {
+                item {
+                    AuthRequiredBanner(
+                        message = "Đăng nhập để xem bảng xếp hạng realtime từ Firestore.",
+                        actionLabel = "Đăng nhập",
+                        onAction = {
+                            navController.navigate(AuthRoutes.GRAPH) { launchSingleTop = true }
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
+
+            if (state.isLoading && state.isAuthenticated) {
+                item {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                    ) {
+                        CircularProgressIndicator(color = Primary)
+                    }
+                }
             }
 
             // ── Time tabs ─────────────────────────────────────────────────

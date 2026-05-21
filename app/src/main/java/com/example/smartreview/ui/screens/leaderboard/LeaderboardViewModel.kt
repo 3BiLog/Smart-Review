@@ -1,6 +1,8 @@
 package com.example.smartreview.ui.screens.leaderboard
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.smartreview.data.auth.AuthSession
 import com.example.smartreview.data.model.LeaderboardEntry
 import com.example.smartreview.data.model.LeaderboardTab
 import com.example.smartreview.data.repository.LeaderboardRepository
@@ -8,13 +10,20 @@ import com.example.smartreview.data.repository.LeaderboardRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class LeaderboardUiState(
-    val allEntries:   List<LeaderboardEntry> = emptyList(),
-    val topThree:     List<LeaderboardEntry> = emptyList(),
-    val restEntries:  List<LeaderboardEntry> = emptyList(),
-    val selectedTab:  LeaderboardTab         = LeaderboardTab.THIS_WEEK,
+    val allEntries: List<LeaderboardEntry> = emptyList(),
+    val topThree: List<LeaderboardEntry> = emptyList(),
+    val restEntries: List<LeaderboardEntry> = emptyList(),
+    val selectedTab: LeaderboardTab = LeaderboardTab.THIS_WEEK,
+    val isAuthenticated: Boolean = false,
+    val isLoading: Boolean = true,
 )
 
 class LeaderboardViewModel(
@@ -24,35 +33,77 @@ class LeaderboardViewModel(
     private val _uiState = MutableStateFlow(LeaderboardUiState())
     val uiState: StateFlow<LeaderboardUiState> = _uiState.asStateFlow()
 
-    init { loadMockData(LeaderboardTab.THIS_WEEK) }
+    private var rawEntries: List<LeaderboardEntry> = emptyList()
 
-    fun selectTab(tab: LeaderboardTab) {
-        loadMockData(tab)
+    init {
+        AuthSession.ensureStarted()
+        viewModelScope.launch {
+            AuthSession.state.collect { session ->
+                _uiState.update { it.copy(isAuthenticated = session.isAuthenticated) }
+                if (!session.isAuthenticated) clearLeaderboard()
+            }
+        }
+        observeLeaderboardRealtime()
     }
 
-    private fun loadMockData(tab: LeaderboardTab) {
-        // Slightly different scores per tab for realism
-        val multiplier = when (tab) {
-            LeaderboardTab.TODAY      -> 0.1f
-            LeaderboardTab.THIS_WEEK  -> 1.0f
-            LeaderboardTab.THIS_MONTH -> 4.2f
+    fun selectTab(tab: LeaderboardTab) {
+        publishScaledEntries(rawEntries, tab)
+    }
+
+    private fun observeLeaderboardRealtime() {
+        viewModelScope.launch {
+            AuthSession.state
+                .map { it.isAuthenticated }
+                .distinctUntilChanged()
+                .flatMapLatest { authenticated ->
+                    if (authenticated) leaderboardRepository.observeLeaderboard()
+                    else flowOf(emptyList())
+                }
+                .collect { entries ->
+                    rawEntries = entries
+                    publishScaledEntries(entries, _uiState.value.selectedTab)
+                }
         }
+    }
 
-        val raw = leaderboardRepository.getBaseEntries().map { entry ->
-            entry.copy(score = (entry.score * multiplier).toInt())
-        }
-
-        val top3 = raw.take(3)
-        // Reorder for podium display: [2nd, 1st, 3rd]
-        val podium = if (top3.size >= 3) listOf(top3[1], top3[0], top3[2]) else top3
-
+    private fun clearLeaderboard() {
+        rawEntries = emptyList()
         _uiState.update {
             it.copy(
-                allEntries  = raw,
-                topThree    = podium,
-                restEntries = raw.drop(3),
-                selectedTab = tab,
+                isLoading = false,
+                allEntries = emptyList(),
+                topThree = emptyList(),
+                restEntries = emptyList(),
             )
         }
+    }
+
+    private fun publishScaledEntries(base: List<LeaderboardEntry>, tab: LeaderboardTab) {
+        val multiplier = tabMultiplier(tab)
+        val maxBaseScore = base.maxOfOrNull { it.score }?.coerceAtLeast(1) ?: 1
+        val scaled = base.map { entry ->
+            val scaledScore = (entry.score * multiplier).toInt()
+            entry.copy(
+                score = scaledScore,
+                progress = scaledScore.toFloat() / (maxBaseScore * multiplier).coerceAtLeast(1f),
+            )
+        }
+        val top3 = scaled.take(3)
+        val podium = if (top3.size >= 3) listOf(top3[1], top3[0], top3[2]) else top3
+        _uiState.update {
+            it.copy(
+                allEntries = scaled,
+                topThree = podium,
+                restEntries = scaled.drop(3),
+                selectedTab = tab,
+                isLoading = false,
+            )
+        }
+    }
+
+    private fun tabMultiplier(tab: LeaderboardTab): Float = when (tab) {
+        LeaderboardTab.TODAY -> 0.1f
+        LeaderboardTab.THIS_WEEK -> 1.0f
+        LeaderboardTab.THIS_MONTH -> 4.2f
     }
 }

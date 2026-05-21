@@ -26,12 +26,11 @@ import com.example.smartreview.ui.theme.Primary
 import com.example.smartreview.ui.theme.SmartReviewTheme
 import com.example.smartreview.ui.theme.Tertiary
 
-const val FLASHCARD_SUMMARY_ROUTE = "flashcard_summary"
-
 @Composable
 fun FlashcardSummaryScreen(
     navController: NavHostController,
-    vm: FlashcardSummaryViewModel = viewModel(),
+    sessionId: String,
+    vm: FlashcardSummaryViewModel = viewModel(factory = FlashcardSummaryViewModel.provideFactory(sessionId)),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
 
@@ -131,6 +130,9 @@ fun FlashcardSummaryScreen(
 @Composable
 private fun FlashcardSummaryPreview() {
     SmartReviewTheme {
-        FlashcardSummaryScreen(navController = rememberNavController())
+        FlashcardSummaryScreen(
+            navController = rememberNavController(),
+            sessionId = "preview",
+        )
     }
 }

@@ -1,66 +1,86 @@
 package com.example.smartreview.ui.auth
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navigation
 
 object AuthRoutes {
-    const val GRAPH         = "auth_graph"
-    const val LOGIN         = "auth_login"
-    const val SIGN_UP       = "auth_sign_up"
-    const val VERIFY_PHONE  = "auth_verify_phone"
-    const val SUCCESS       = "auth_success"
+    const val GRAPH = "auth_graph"
+    const val LOGIN = "auth_login"
+    const val SIGN_UP = "auth_sign_up"
+    const val SUCCESS = "auth_success"
+}
+
+/**
+ * Shared [AuthViewModel] scoped to the auth nested graph.
+ *
+ * Uses [NavBackStackEntry.destination.parent] from the current screen entry instead of
+ * [NavHostController.getBackStackEntry] with a hard-coded graph route, which crashes when
+ * `auth_graph` is not on the back stack (e.g. app start destination is Home).
+ */
+@Composable
+private fun rememberAuthViewModel(
+    navController: NavHostController,
+    backStackEntry: NavBackStackEntry,
+): AuthViewModel {
+    val owner = remember(backStackEntry) {
+        navController.safeAuthGraphViewModelOwner(backStackEntry)
+    }
+    return viewModel(owner)
+}
+
+/**
+ * Resolves the ViewModelStoreOwner for the auth nested graph from the active child entry.
+ * Falls back to [backStackEntry] if the graph parent is unavailable (no crash).
+ */
+private fun NavHostController.safeAuthGraphViewModelOwner(
+    backStackEntry: NavBackStackEntry,
+): NavBackStackEntry {
+    val parent = backStackEntry.destination.parent
+        ?: return backStackEntry
+    return try {
+        getBackStackEntry(parent.id)
+    } catch (_: IllegalArgumentException) {
+        backStackEntry
+    }
 }
 
 fun NavGraphBuilder.authGraph(
-    navController:   NavHostController,
-    onAuthComplete:  () -> Unit,
+    navController: NavHostController,
+    onAuthComplete: () -> Unit,
 ) {
     navigation(
         startDestination = AuthRoutes.LOGIN,
-        route            = AuthRoutes.GRAPH,
+        route = AuthRoutes.GRAPH,
     ) {
-        composable(AuthRoutes.LOGIN) {
-            val parentEntry = remember(navController.getBackStackEntry(AuthRoutes.GRAPH)) {
-                navController.getBackStackEntry(AuthRoutes.GRAPH)
-            }
-            val authVm: AuthViewModel = viewModel(parentEntry)
+        composable(AuthRoutes.LOGIN) { backStackEntry ->
+            val authVm = rememberAuthViewModel(navController, backStackEntry)
             LoginScreen(
-                onLoginSuccess   = onAuthComplete,
+                onLoginSuccess = onAuthComplete,
                 onNavigateSignUp = { navController.navigate(AuthRoutes.SIGN_UP) },
-                vm               = authVm,
+                vm = authVm,
             )
         }
-        composable(AuthRoutes.SIGN_UP) {
-            val parentEntry = remember(navController.getBackStackEntry(AuthRoutes.GRAPH)) {
-                navController.getBackStackEntry(AuthRoutes.GRAPH)
-            }
-            val authVm: AuthViewModel = viewModel(parentEntry)
+        composable(AuthRoutes.SIGN_UP) { backStackEntry ->
+            val authVm = rememberAuthViewModel(navController, backStackEntry)
             SignUpScreen(
-                onNavigateVerify = { navController.navigate(AuthRoutes.VERIFY_PHONE) },
-                onNavigateLogin  = { navController.popBackStack() },
-                vm               = authVm,
-            )
-        }
-        composable(AuthRoutes.VERIFY_PHONE) {
-            VerifyPhoneScreen(
-                onVerified = {
+                onRegisterSuccess = {
                     navController.navigate(AuthRoutes.SUCCESS) {
-                        popUpTo(AuthRoutes.VERIFY_PHONE) { inclusive = true }
+                        popUpTo(AuthRoutes.SIGN_UP) { inclusive = true }
                     }
                 },
-                onBack = { navController.popBackStack() },
+                onNavigateLogin = { navController.popBackStack() },
+                vm = authVm,
             )
         }
-        composable(AuthRoutes.SUCCESS) {
-            AuthSuccessScreen(
-                onDone = {
-                    onAuthComplete()
-                },
-            )
+        composable(AuthRoutes.SUCCESS) { backStackEntry ->
+            val authVm = rememberAuthViewModel(navController, backStackEntry)
+            AuthSuccessScreen(vm = authVm, onDone = onAuthComplete)
         }
     }
 }
