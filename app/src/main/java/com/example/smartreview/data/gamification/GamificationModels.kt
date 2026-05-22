@@ -35,5 +35,6 @@ sealed class GamificationRewardResult {
 
     data object NotAuthenticated : GamificationRewardResult()
 
-    data object Failed : GamificationRewardResult()
+    /** Firestore reward failed; [reason] is for logging/UI (never treat as success). */
+    data class Failed(val reason: String? = null) : GamificationRewardResult()
 }

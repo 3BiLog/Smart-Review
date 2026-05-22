@@ -4,7 +4,7 @@ import com.example.smartreview.data.model.SearchResult
 
 /**
  * Data access contract for the Search feature.
- * ViewModels depend on this interface — not on [com.example.smartreview.data.mock.MockSearchData].
+ * ViewModels depend on this interface — results come from [com.example.smartreview.data.repository.CourseRepository].
  */
 interface SearchRepository {
 

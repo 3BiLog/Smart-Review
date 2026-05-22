@@ -1,8 +1,5 @@
 package com.example.smartreview.ui.screens.lessonplayer
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +26,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.smartreview.data.model.LessonItem
+import com.example.smartreview.ui.components.YoutubeLessonPlayer
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonContent
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
 import com.example.smartreview.ui.theme.*
 
 // ─── Route ───────────────────────────────────────────────────────────────────
@@ -66,24 +65,21 @@ fun LessonVideoPlayerScreen(
             // ── 1. Video player ───────────────────────────────────────────
             item {
                 VideoPlayerArea(
-                    thumbnailUrl     = lesson.thumbnailUrl,
-                    isPlaying        = state.isPlaying,
-                    showControls     = state.showControls,
-                    playbackProgress = state.playbackProgress,
-                    currentTime      = state.currentTime,
-                    totalTime        = state.totalTime,
-                    onTap            = { vm.toggleControls() },
-                    onPlayPause      = { vm.togglePlayPause() },
+                    videoId = state.youtubeVideoId,
+                    thumbnailUrl = lesson.thumbnailUrl,
+                    videoError = state.videoError,
+                    onContinueToContent = { navController.navigateLessonContent(lesson.id) },
                 )
             }
 
             // ── 2. Lesson info ────────────────────────────────────────────
             item {
                 LessonInfoCard(
-                    lesson    = lesson,
-                    isSaved   = state.isSaved,
-                    onSave    = { vm.toggleSave() },
-                    modifier  = Modifier.padding(16.dp),
+                    lesson = lesson,
+                    subtitle = state.lessonSubtitle,
+                    isSaved = state.isSaved,
+                    onSave = { vm.toggleSave() },
+                    modifier = Modifier.padding(16.dp),
                 )
             }
 
@@ -111,7 +107,7 @@ fun LessonVideoPlayerScreen(
                 PlaylistItem(
                     item     = item,
                     isCurrent = item.isCurrentlyPlaying,
-                    onClick  = { vm.selectLesson(item) },
+                    onClick  = { navController.navigateLessonVideo(item.id) },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
@@ -124,135 +120,58 @@ fun LessonVideoPlayerScreen(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun VideoPlayerArea(
-    thumbnailUrl:     String,
-    isPlaying:        Boolean,
-    showControls:     Boolean,
-    playbackProgress: Float,
-    currentTime:      String,
-    totalTime:        String,
-    onTap:            () -> Unit,
-    onPlayPause:      () -> Unit,
+    videoId: String?,
+    thumbnailUrl: String,
+    videoError: String?,
+    onContinueToContent: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(16f / 9f)
-            .background(Color.Black)
-            .clickable(onClick = onTap),
-    ) {
-        // Thumbnail
-        AsyncImage(
-            model              = thumbnailUrl.ifEmpty { "https://picsum.photos/seed/video/640/360" },
-            contentDescription = null,
-            contentScale       = ContentScale.Crop,
-            modifier           = Modifier.fillMaxSize(),
-        )
-
-        // Controls overlay (fade in/out)
-        AnimatedVisibility(
-            visible = showControls,
-            enter   = fadeIn(),
-            exit    = fadeOut(),
-            modifier = Modifier.fillMaxSize(),
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .background(Color.Black),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(0.30f),
-                                Color.Transparent,
-                                Color.Transparent,
-                                Color.Black.copy(0.80f),
-                            )
-                        )
-                    )
-            ) {
-                // Centre play/pause button
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier         = Modifier
-                        .size(56.dp)
-                        .align(Alignment.Center)
-                        .clip(CircleShape)
-                        .background(Brush.linearGradient(listOf(GradientStart, GradientEnd)))
-                        .clickable(onClick = onPlayPause),
-                ) {
-                    Icon(
-                        if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint     = Color.White,
-                        modifier = Modifier.size(30.dp),
+            if (videoId != null) {
+                key(videoId) {
+                    YoutubeLessonPlayer(
+                        videoId = videoId,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
-
-                // Bottom controls
-                Column(
+            } else {
+                AsyncImage(
+                    model = thumbnailUrl.ifEmpty { "https://picsum.photos/seed/video/640/360" },
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                        .fillMaxSize()
+                        .background(Color.Black.copy(0.45f)),
                 ) {
-                    // Progress bar
-                    LinearProgressIndicator(
-                        progress      = { playbackProgress },
-                        modifier      = Modifier
-                            .fillMaxWidth()
-                            .height(3.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color         = Primary,
-                        trackColor    = Color.White.copy(0.3f),
-                        strokeCap     = StrokeCap.Round,
+                    Text(
+                        videoError ?: "Chưa có video",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(16.dp),
                     )
-
-                    Row(
-                        verticalAlignment     = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier              = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
-                            verticalAlignment     = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            Icon(Icons.Default.VolumeUp,
-                                null, tint = Color.White, modifier = Modifier.size(18.dp))
-                            Text(
-                                "$currentTime / $totalTime",
-                                color = Color.White,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 11.sp,
-                            )
-                        }
-                        Row(
-                            verticalAlignment     = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Icon(Icons.Default.Settings,
-                                null, tint = Color.White, modifier = Modifier.size(18.dp))
-                            Icon(Icons.Default.Fullscreen,
-                                null, tint = Color.White, modifier = Modifier.size(20.dp))
-                        }
-                    }
                 }
             }
         }
-
-        // When controls hidden, show minimal play button in centre
-        if (!showControls && !isPlaying) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier         = Modifier
-                    .size(56.dp)
-                    .align(Alignment.Center)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(GradientStart, GradientEnd))),
-            ) {
-                Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(30.dp))
-            }
+        Button(
+            onClick = onContinueToContent,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Primary),
+        ) {
+            Icon(Icons.Default.ArrowForward, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Tiếp tục — Tóm tắt bài học")
         }
     }
 }
@@ -262,9 +181,10 @@ private fun VideoPlayerArea(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun LessonInfoCard(
-    lesson:   LessonItem,
-    isSaved:  Boolean,
-    onSave:   () -> Unit,
+    lesson: LessonItem,
+    subtitle: String,
+    isSaved: Boolean,
+    onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -300,6 +220,14 @@ private fun LessonInfoCard(
                         fontWeight = FontWeight.Bold,
                         color      = OnSurface,
                     )
+                    if (subtitle.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = OnSurfaceVariant,
+                        )
+                    }
                 }
                 // Save button
                 IconButton(

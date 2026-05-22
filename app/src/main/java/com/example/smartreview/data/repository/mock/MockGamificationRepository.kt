@@ -20,7 +20,7 @@ class MockGamificationRepository(
         action: XpRewardAction,
         idempotencyKey: String,
     ): GamificationRewardResult {
-        if (idempotencyKey.isBlank()) return GamificationRewardResult.Failed
+        if (idempotencyKey.isBlank()) return GamificationRewardResult.Failed()
         synchronized(processedKeys) {
             if (idempotencyKey in processedKeys) {
                 return GamificationRewardResult.AlreadyProcessed()
@@ -29,7 +29,7 @@ class MockGamificationRepository(
         }
 
         val profile = mockUserRepository.getCurrentUserProfile()
-        if (profile.uid != uid) return GamificationRewardResult.Failed
+        if (profile.uid != uid) return GamificationRewardResult.Failed()
 
         val todayKey = StudyDayFormatter.todayKey()
         val streakUpdate = if (action.countsTowardStreak) {

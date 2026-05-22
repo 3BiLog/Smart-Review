@@ -70,6 +70,8 @@ class QuizViewModel(
 
         val record = QuizScorer.evaluateAnswer(question, selected)
         answerRecords.add(record)
+        val quiz = state.quiz ?: return
+        val isLastQuestion = state.currentIndex >= quiz.questions.size - 1
 
         _uiState.update {
             it.copy(
@@ -77,7 +79,12 @@ class QuizViewModel(
                 lastFeedbackCorrect = record.isCorrect,
                 lastExplanation = question.explanation,
                 answers = answerRecords.toList(),
+                isQuizFinished = isLastQuestion,
+                selectedOptionId = if (isLastQuestion) null else it.selectedOptionId,
             )
+        }
+        if (isLastQuestion) {
+            viewModelScope.launch { progressService.clearQuizInProgress() }
         }
         persistProgress()
     }
@@ -117,7 +124,7 @@ class QuizViewModel(
         persistProgress()
     }
 
-    fun completeQuiz(): String? {
+    fun completeQuiz(): QuizCompletionResult? {
         val quiz = _uiState.value.quiz ?: return null
         if (!_uiState.value.isQuizFinished) return null
 
@@ -133,7 +140,7 @@ class QuizViewModel(
             durationMs = System.currentTimeMillis() - sessionStartedAt,
         )
         QuizSessionStore.put(result)
-        return sessionId
+        return result
     }
 
     private suspend fun loadQuiz() {
@@ -170,6 +177,9 @@ class QuizViewModel(
             alreadyCompleted = progressService.isQuizCompleted(quizId),
             isResuming = isResuming,
         )
+        if (!progressService.isQuizCompleted(quizId)) {
+            persistProgress()
+        }
     }
 
     private fun persistProgress() {

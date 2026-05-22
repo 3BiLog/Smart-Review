@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class LessonSummaryUiState(
+    val courseId: String = "",
     val lessonTitle: String = "",
     val xpEarned: Int = 0,
     val streakDays: Int = 0,
@@ -22,6 +23,7 @@ data class LessonSummaryUiState(
     val studyTime: String = "00:00",
     val progress: Float = 0f,
     val rewardGranted: Boolean = false,
+    val rewardMessage: String? = null,
     val hasSessionData: Boolean = false,
 )
 
@@ -45,6 +47,7 @@ class LessonSummaryViewModel(
     private fun applySession(session: LessonCompletionResult) {
         _uiState.update {
             it.copy(
+                courseId = session.courseId,
                 lessonTitle = session.lessonTitle,
                 viewedBlocks = session.viewedBlocks,
                 totalBlocks = session.totalBlocks,
@@ -64,11 +67,25 @@ class LessonSummaryViewModel(
                             xpEarned = result.xpAwarded,
                             streakDays = result.newStreak,
                             rewardGranted = true,
+                            rewardMessage = null,
                         )
                     }
                 }
                 is GamificationRewardResult.AlreadyProcessed -> {
-                    _uiState.update { it.copy(rewardGranted = false) }
+                    _uiState.update {
+                        it.copy(
+                            rewardGranted = false,
+                            rewardMessage = "XP đã được nhận trước đó cho bài học này.",
+                        )
+                    }
+                }
+                is GamificationRewardResult.Failed -> {
+                    _uiState.update {
+                        it.copy(
+                            rewardGranted = false,
+                            rewardMessage = "Không thể cộng XP lên Firestore. Thử lại sau.",
+                        )
+                    }
                 }
                 else -> Unit
             }

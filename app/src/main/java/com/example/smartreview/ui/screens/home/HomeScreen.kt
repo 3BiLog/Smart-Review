@@ -19,6 +19,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.smartreview.data.model.LearningActivityType
 import com.example.smartreview.ui.components.SectionHeader
 import com.example.smartreview.ui.components.SmartReviewBottomBar
 import com.example.smartreview.ui.navigation.Screen
@@ -71,8 +72,8 @@ fun HomeScreen(
             Spacer(Modifier.height(24.dp))
 
             SectionHeader(
-                title = if (state.resumeLearning.isNotEmpty()) "Tiếp tục học" else "Continue Learning",
-                linkText = "Xem tất cả",
+                title = "Tiếp tục học",
+                linkText = if (state.resumeLearning.isNotEmpty()) "Xem tất cả" else null,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
             Spacer(Modifier.height(12.dp))
@@ -84,29 +85,28 @@ fun HomeScreen(
                     items(state.resumeLearning, key = { "${it.type}_${it.contentId}" }) { item ->
                         HomeContinueCourseCard(
                             card = CourseCard(
-                                id = item.contentId,
+                                id = item.courseId ?: item.contentId,
                                 title = item.title,
                                 subtitle = item.subtitle,
                                 imageUrl = item.imageUrl,
                                 progress = item.progressPercent,
-                                timeLeft = "Đang học dở",
+                                timeLeft = when (item.type) {
+                                    LearningActivityType.LESSON -> "Bài học dở"
+                                    LearningActivityType.QUIZ -> "Quiz dở"
+                                    LearningActivityType.FLASHCARD -> "Flashcard dở"
+                                },
                             ),
                             onClick = { navController.navigate(item.route) },
                         )
                     }
                 }
             } else {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(state.continueCourses) { course ->
-                        HomeContinueCourseCard(
-                            card = course,
-                            onClick = { navController.navigate(Screen.Flashcard.route) },
-                        )
-                    }
-                }
+                Text(
+                    "Chưa có bài học đang dở. Bắt đầu một khóa học để thấy tiến độ tại đây.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = OnSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
             }
 
             Spacer(Modifier.height(24.dp))

@@ -7,6 +7,8 @@ import com.example.smartreview.data.gamification.GamificationRewardResult
 import com.example.smartreview.data.learning.LearningProgressServiceProvider
 import com.example.smartreview.data.quiz.QuizSessionStore
 import com.example.smartreview.data.repository.GamificationServiceProvider
+import com.example.smartreview.data.repository.LessonRepositoryProvider
+import com.example.smartreview.data.repository.QuizRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class QuizSummaryUiState(
+    val courseId: String = "",
     val quizTitle: String = "",
     val correctCount: Int = 0,
     val totalQuestions: Int = 0,
@@ -23,6 +26,7 @@ data class QuizSummaryUiState(
     val xpEarned: Int = 0,
     val streakDays: Int = 0,
     val rewardGranted: Boolean = false,
+    val rewardMessage: String? = null,
     val hasSessionData: Boolean = false,
 )
 
@@ -38,8 +42,10 @@ class QuizSummaryViewModel(
     init {
         val session = QuizSessionStore.consume(sessionId)
         if (session != null) {
+            val courseId = resolveCourseId(session.quizId)
             _uiState.update {
                 it.copy(
+                    courseId = courseId,
                     quizTitle = session.quizTitle,
                     correctCount = session.correctCount,
                     totalQuestions = session.totalQuestions,
@@ -65,15 +71,35 @@ class QuizSummaryViewModel(
                             xpEarned = result.xpAwarded,
                             streakDays = result.newStreak,
                             rewardGranted = true,
+                            rewardMessage = null,
                         )
                     }
                 }
                 is GamificationRewardResult.AlreadyProcessed -> {
-                    _uiState.update { it.copy(rewardGranted = false) }
+                    _uiState.update {
+                        it.copy(
+                            rewardGranted = false,
+                            rewardMessage = "XP quiz đã được nhận trước đó (mỗi quiz một lần).",
+                        )
+                    }
+                }
+                is GamificationRewardResult.Failed -> {
+                    _uiState.update {
+                        it.copy(
+                            rewardGranted = false,
+                            rewardMessage = "Không thể cộng XP lên Firestore. Thử lại sau.",
+                        )
+                    }
                 }
                 else -> Unit
             }
         }
+    }
+
+    private fun resolveCourseId(quizId: String): String {
+        val quiz = QuizRepositoryProvider.default.getQuiz(quizId) ?: return ""
+        val lessonId = quiz.lessonId ?: return ""
+        return LessonRepositoryProvider.default.getLesson(lessonId)?.courseId.orEmpty()
     }
 
     companion object {

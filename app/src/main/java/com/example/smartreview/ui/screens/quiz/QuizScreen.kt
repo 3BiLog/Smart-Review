@@ -8,14 +8,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.smartreview.data.learning.LessonFlowCompletion
+import com.example.smartreview.ui.screens.lessonsummary.lessonSummaryRoute
 import com.example.smartreview.ui.screens.quizsummary.quizSummaryRoute
 import com.example.smartreview.ui.theme.*
 
@@ -26,6 +28,7 @@ fun QuizScreen(
     vm: QuizViewModel = viewModel(factory = QuizViewModel.provideFactory(quizId)),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
     val quiz = state.quiz
 
     if (state.isLoading) {
@@ -44,6 +47,9 @@ fun QuizScreen(
 
     val question = vm.currentQuestion!!
     val progress = (state.currentIndex + 1).toFloat() / vm.totalQuestions.coerceAtLeast(1)
+    val isLastQuestion = state.currentIndex >= vm.totalQuestions - 1
+    val showFinishedPanel = state.isQuizFinished ||
+        (state.showFeedback && isLastQuestion && state.answers.size >= vm.totalQuestions)
 
     Scaffold(
         containerColor = Background,
@@ -88,15 +94,35 @@ fun QuizScreen(
             Text(quiz.subtitle, style = MaterialTheme.typography.labelMedium, color = OnSurfaceVariant)
             Spacer(Modifier.height(16.dp))
 
-            if (state.isQuizFinished) {
+            if (showFinishedPanel) {
                 QuizFinishedPanel(
                     correct = state.answers.count { it.isCorrect },
                     total = vm.totalQuestions,
                     onFinish = {
-                        val sessionId = vm.completeQuiz()
-                        if (sessionId != null) {
-                            navController.navigate(quizSummaryRoute(sessionId)) {
+                        val result = vm.completeQuiz() ?: return@QuizFinishedPanel
+                        val linkedLessonId = quiz.lessonId?.takeIf { it.isNotBlank() }
+                        if (linkedLessonId != null) {
+                            LessonFlowCompletion.completeQuizAndPrepareLessonSummary(
+                                scope = scope,
+                                quiz = quiz,
+                                quizResult = result,
+                            ) { handoff ->
+                                if (handoff != null) {
+                                    navController.navigate(lessonSummaryRoute(handoff.lessonSummarySessionId)) {
+                                        launchSingleTop = true
+                                        popUpTo("quiz/$quizId") { inclusive = true }
+                                    }
+                                } else {
+                                    navController.navigate(quizSummaryRoute(result.sessionId)) {
+                                        launchSingleTop = true
+                                        popUpTo("quiz/$quizId") { inclusive = true }
+                                    }
+                                }
+                            }
+                        } else {
+                            navController.navigate(quizSummaryRoute(result.sessionId)) {
                                 launchSingleTop = true
+                                popUpTo("quiz/$quizId") { inclusive = true }
                             }
                         }
                     },

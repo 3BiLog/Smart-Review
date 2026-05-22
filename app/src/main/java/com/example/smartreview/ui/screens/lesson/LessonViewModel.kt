@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.smartreview.data.learning.LearningProgressServiceProvider
+import com.example.smartreview.data.learning.LessonContentBlocks
 import com.example.smartreview.data.lesson.LessonProgressStore
 import com.example.smartreview.data.lesson.LessonSessionStore
 import com.example.smartreview.data.model.LessonBlock
@@ -21,10 +22,10 @@ import java.util.UUID
 
 data class LessonUiState(
     val lesson: LessonContent? = null,
-    val currentBlockIndex: Int = 0,
+    val contentBlocks: List<LessonBlock> = emptyList(),
+    val linkedQuizId: String? = null,
     val viewedBlockCount: Int = 0,
-    val remainingBlockCount: Int = 0,
-    val isLessonComplete: Boolean = false,
+    val isContentReady: Boolean = false,
     val isLoading: Boolean = true,
     val alreadyCompleted: Boolean = false,
     val isResuming: Boolean = false,
@@ -47,44 +48,31 @@ class LessonViewModel(
         viewModelScope.launch { loadLesson() }
     }
 
-    val totalBlocks: Int get() = _uiState.value.lesson?.blocks?.size ?: 0
-
-    val currentBlock: LessonBlock?
-        get() = _uiState.value.lesson?.blocks?.getOrNull(_uiState.value.currentBlockIndex)
-
-    fun markCurrentBlockViewed() {
-        val block = currentBlock ?: return
-        viewedBlockIds.add(block.id)
-        publishProgress()
-    }
-
-    fun nextBlock() {
-        markCurrentBlockViewed()
-        val lesson = _uiState.value.lesson ?: return
-        if (lesson.blocks.isEmpty()) return
-        val next = (_uiState.value.currentBlockIndex + 1).coerceAtMost(lesson.blocks.lastIndex)
-        _uiState.update { it.copy(currentBlockIndex = next) }
-        checkCompletion()
-    }
-
-    fun previousBlock() {
-        val prev = (_uiState.value.currentBlockIndex - 1).coerceAtLeast(0)
-        _uiState.update { it.copy(currentBlockIndex = prev) }
-        persistProgress()
+    fun markContentViewed() {
+        val blocks = _uiState.value.contentBlocks
+        if (blocks.isEmpty()) return
+        viewedBlockIds.addAll(blocks.map { it.id })
+        _uiState.update {
+            it.copy(
+                viewedBlockCount = blocks.size,
+                isContentReady = true,
+            )
+        }
+        persistContentProgress()
     }
 
     fun completeLesson(): String? {
         val state = _uiState.value
         val lesson = state.lesson ?: return null
-        if (!state.isLessonComplete) return null
+        if (!state.isContentReady) return null
 
         val result = LessonCompletionResult(
             sessionId = sessionId,
             lessonId = lesson.id,
             courseId = lesson.courseId,
             lessonTitle = lesson.title,
-            totalBlocks = lesson.blocks.size,
-            viewedBlocks = state.viewedBlockCount,
+            totalBlocks = state.contentBlocks.size.coerceAtLeast(1),
+            viewedBlocks = state.viewedBlockCount.coerceAtLeast(1),
             durationMs = System.currentTimeMillis() - sessionStartedAt,
         )
         LessonSessionStore.put(result)
@@ -101,68 +89,46 @@ class LessonViewModel(
             return
         }
 
-        viewedBlockIds.clear()
+        val contentBlocks = LessonContentBlocks.contentBlocks(lesson)
+        val linkedQuizId = LessonContentBlocks.linkedQuizId(lesson)
         var isResuming = false
         val snapshot = progressService.lessonSnapshotForLesson(lessonId)
         if (snapshot != null) {
             isResuming = true
             sessionId = snapshot.sessionId
             sessionStartedAt = snapshot.sessionStartedAt
-            viewedBlockIds.addAll(snapshot.viewedBlockIds)
-        } else if (lesson.blocks.isNotEmpty()) {
-            viewedBlockIds.add(lesson.blocks.first().id)
+            viewedBlockIds.addAll(snapshot.viewedBlockIds.intersect(contentBlocks.map { it.id }.toSet()))
         }
 
         val alreadyCompleted = progressService.isLessonCompleted(lesson.id)
+        val viewedCount = contentBlocks.count { it.id in viewedBlockIds }
 
         _uiState.value = LessonUiState(
             lesson = lesson,
-            currentBlockIndex = snapshot?.currentBlockIndex ?: 0,
-            remainingBlockCount = lesson.blocks.size,
-            viewedBlockCount = viewedBlockIds.size.coerceAtMost(lesson.blocks.size),
+            contentBlocks = contentBlocks,
+            linkedQuizId = linkedQuizId,
+            viewedBlockCount = viewedCount,
+            isContentReady = contentBlocks.isNotEmpty() && viewedCount >= contentBlocks.size,
             isLoading = false,
             alreadyCompleted = alreadyCompleted,
             isResuming = isResuming,
         )
-        checkCompletion()
-        persistProgress()
-    }
-
-    private fun checkCompletion() {
-        val lesson = _uiState.value.lesson ?: return
-        val allViewed = lesson.blocks.isNotEmpty() &&
-            lesson.blocks.all { it.id in viewedBlockIds }
-        if (allViewed) {
-            _uiState.update { it.copy(isLessonComplete = true) }
-            viewModelScope.launch { progressService.clearLessonInProgress() }
-        } else {
-            persistProgress()
+        if (!alreadyCompleted) {
+            persistContentProgress()
         }
     }
 
-    private fun publishProgress() {
-        val lesson = _uiState.value.lesson ?: return
-        val viewed = lesson.blocks.count { it.id in viewedBlockIds }
-        _uiState.update {
-            it.copy(
-                viewedBlockCount = viewed,
-                remainingBlockCount = (lesson.blocks.size - viewed).coerceAtLeast(0),
-            )
-        }
-        persistProgress()
-    }
-
-    private fun persistProgress() {
+    private fun persistContentProgress() {
         val state = _uiState.value
         val lesson = state.lesson ?: return
-        if (state.isLessonComplete) return
+        if (state.alreadyCompleted) return
         viewModelScope.launch {
             progressService.saveLessonSnapshot(
                 LessonProgressSnapshot(
                     lessonId = lesson.id,
                     sessionId = sessionId,
                     sessionStartedAt = sessionStartedAt,
-                    currentBlockIndex = state.currentBlockIndex,
+                    currentBlockIndex = 0,
                     viewedBlockIds = viewedBlockIds.toSet(),
                 ),
             )

@@ -23,6 +23,8 @@ data class FlashcardSummaryUiState(
     val studyTime: String = "00:00",
     val animatedAccuracy: Float = 0f,
     val isNavigating: Boolean = false,
+    val rewardGranted: Boolean = false,
+    val rewardMessage: String? = null,
     val hasSessionData: Boolean = false,
 )
 
@@ -81,10 +83,27 @@ class FlashcardSummaryViewModel(
                         it.copy(
                             xpEarned = result.xpAwarded,
                             streakDays = result.newStreak,
+                            rewardGranted = true,
+                            rewardMessage = null,
                         )
                     }
                 }
-                is GamificationRewardResult.AlreadyProcessed -> Unit
+                is GamificationRewardResult.AlreadyProcessed -> {
+                    _uiState.update {
+                        it.copy(
+                            rewardGranted = false,
+                            rewardMessage = "XP flashcard đã được nhận trước đó cho phiên này.",
+                        )
+                    }
+                }
+                is GamificationRewardResult.Failed -> {
+                    _uiState.update {
+                        it.copy(
+                            rewardGranted = false,
+                            rewardMessage = "Không thể cộng XP lên Firestore. Thử lại sau.",
+                        )
+                    }
+                }
                 else -> Unit
             }
         }

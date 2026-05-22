@@ -48,6 +48,8 @@ data class LessonItem(
     val thumbnailUrl:     String,
     val isLocked:         Boolean,
     val isCurrentlyPlaying: Boolean = false,
+    /** YouTube URL for [LessonVideoPlayerScreen]; may be enriched from [LessonContent]. */
+    val videoUrl:         String = "",
 ) {
     val formattedDuration: String
         get() {

@@ -24,10 +24,14 @@ data class LessonBlock(
 data class LessonContent(
     val id: String,
     val courseId: String,
+    val moduleId: String,
+    val orderInModule: Int,
     val title: String,
     val subtitle: String,
     val estimatedMinutes: Int,
     val blocks: List<LessonBlock>,
+    /** YouTube watch / youtu.be / embed URL (unlisted supported). Empty = no video. */
+    val videoUrl: String = "",
     val xpReward: Int = 50,
 )
 

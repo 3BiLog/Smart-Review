@@ -55,7 +55,17 @@ fun FlashcardSummaryScreen(
                     .padding(horizontal = 24.dp)
                     .padding(top = 48.dp, bottom = 40.dp),
             ) {
-                FlashcardSummaryTrophyHero(xpEarned = state.xpEarned)
+                FlashcardSummaryTrophyHero(
+                    xpEarned = if (state.rewardGranted) state.xpEarned else 0,
+                )
+                state.rewardMessage?.let { message ->
+                    Spacer(Modifier.height(8.dp))
+                    androidx.compose.material3.Text(
+                        text = message,
+                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                        color = com.example.smartreview.ui.theme.OnSurfaceVariant,
+                    )
+                }
 
                 Spacer(Modifier.height(32.dp))
 

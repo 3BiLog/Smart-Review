@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateToCourseFromStudy
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateToHomeFromStudy
 import com.example.smartreview.ui.theme.*
 
 @Composable
@@ -69,17 +71,19 @@ fun LessonSummaryScreen(
                         SummaryRow("XP nhận được", "+${state.xpEarned}")
                         SummaryRow("Streak", "${state.streakDays} ngày")
                     } else {
+                        state.rewardMessage?.let { message ->
                         Text(
-                            "XP đã được nhận trước đó cho bài học này.",
+                            message,
                             style = MaterialTheme.typography.labelSmall,
                             color = OnSurfaceVariant,
                         )
+                        }
                     }
                 }
             }
 
             Button(
-                onClick = { navController.popBackStack() },
+                onClick = { navController.navigateToCourseFromStudy(state.courseId) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Primary),
@@ -90,10 +94,7 @@ fun LessonSummaryScreen(
             }
 
             OutlinedButton(
-                onClick = {
-                    navController.popBackStack()
-                    navController.popBackStack()
-                },
+                onClick = { navController.navigateToHomeFromStudy() },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
             ) {

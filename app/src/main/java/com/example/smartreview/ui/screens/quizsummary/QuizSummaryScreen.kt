@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateToCourseFromStudy
 import com.example.smartreview.ui.theme.*
 
 @Composable
@@ -65,23 +66,25 @@ fun QuizSummaryScreen(
                         SummaryRow("XP", "+${state.xpEarned}")
                         SummaryRow("Streak", "${state.streakDays} ngày")
                     } else if (state.hasSessionData) {
+                        state.rewardMessage?.let { message ->
                         Text(
-                            "XP quiz đã được nhận trước đó (mỗi quiz một lần).",
+                            message,
                             style = MaterialTheme.typography.labelSmall,
                             color = OnSurfaceVariant,
                         )
+                        }
                     }
                 }
             }
 
             Button(
-                onClick = { navController.popBackStack() },
+                onClick = { navController.navigateToCourseFromStudy(state.courseId) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Primary),
             ) {
                 Icon(Icons.Default.ArrowBack, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Quay lại bài học")
+                Text("Quay lại khóa học")
             }
         }
     }

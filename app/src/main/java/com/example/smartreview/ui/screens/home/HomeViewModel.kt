@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.smartreview.data.auth.AuthSession
 import com.example.smartreview.data.learning.LearningProgressServiceProvider
-import com.example.smartreview.data.model.ResumeLearningItem
+import com.example.smartreview.data.model.LearningProgressionItem
 import com.example.smartreview.data.repository.UserRepository
 import com.example.smartreview.data.repository.UserRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +42,7 @@ data class HomeUiState(
     val goalCurrent:    Int          = 15,
     val goalTarget:     Int          = 25,
     val continueCourses: List<CourseCard>    = emptyList(),
-    val resumeLearning: List<ResumeLearningItem> = emptyList(),
+    val resumeLearning: List<LearningProgressionItem> = emptyList(),
     val recommended:    List<RecommendedCard> = emptyList(),
 )
 
@@ -110,24 +110,6 @@ class HomeViewModel(
 
     private fun loadMockData() {
         _uiState.value = HomeUiState(
-            continueCourses = listOf(
-                CourseCard(
-                    id       = "1",
-                    title    = "Advanced UI Patterns in Next.js",
-                    subtitle = "Chapter 4: Suspense & Streaming",
-                    imageUrl = "https://picsum.photos/seed/course1/400/200",
-                    progress = 0.65f,
-                    timeLeft = "45 mins left"
-                ),
-                CourseCard(
-                    id       = "2",
-                    title    = "Mastering React Hooks",
-                    subtitle = "Lesson 2: useEffect Deep Dive",
-                    imageUrl = "https://picsum.photos/seed/course2/400/200",
-                    progress = 0.85f,
-                    timeLeft = "12 mins left"
-                ),
-            ),
             recommended = listOf(
                 RecommendedCard(
                     title       = "Data Structures & Algorithms",

@@ -18,7 +18,7 @@ data class SearchUiState(
     val searchQuery: String = "",
     val isSearching: Boolean = false,
     val filters: List<String> = listOf(
-        "Tất cả", "Lập trình", "Thiết kế", "Kinh doanh", "Marketing", "Ngoại ngữ"
+        "Tất cả", "Lập trình", "Sản phẩm",
     ),
     val selectedFilter: String = "Tất cả",
     val sortBy: SortOption = SortOption.POPULAR,
@@ -30,8 +30,7 @@ data class SearchUiState(
     val filterPriceUpper: Long = 2_000_000L,
     val filterMinRating: Float = 0f,
     val suggestions: List<String> = listOf(
-        "UI/UX Design", "Python", "IELTS", "Data Science",
-        "React Native", "Machine Learning", "Kỹ năng giao tiếp"
+        "React", "Compose", "Android", "Sản phẩm", "ViewModel",
     ),
 )
 
@@ -44,7 +43,7 @@ class SearchViewModel(
 
     private var searchJob: Job? = null
 
-    init { loadMockData() }
+    init { loadCatalog() }
 
     fun onQueryChange(query: String) {
         _uiState.update { it.copy(searchQuery = query, isSearching = query.isNotBlank()) }
@@ -122,8 +121,16 @@ class SearchViewModel(
             SortOption.RATING -> list.sortedByDescending { it.rating }
         }
 
-    private fun loadMockData() {
-        val mock = searchRepository.getAllResults()
-        _uiState.update { it.copy(allResults = mock, displayedResults = mock) }
+    private fun loadCatalog() {
+        val catalog = searchRepository.getAllResults()
+        val maxPrice = catalog.maxOfOrNull { it.price }?.coerceAtLeast(0L) ?: 0L
+        _uiState.update {
+            it.copy(
+                allResults = catalog,
+                displayedResults = catalog,
+                filterMaxPrice = maxPrice.coerceAtLeast(1_000_000L),
+                filterPriceUpper = maxPrice.coerceAtLeast(1_000_000L),
+            )
+        }
     }
 }

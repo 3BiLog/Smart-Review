@@ -47,12 +47,31 @@ data class UserLearningProgress(
     val lastUpdatedAt: Long = System.currentTimeMillis(),
 )
 
-data class ResumeLearningItem(
+/**
+ * Structured in-progress activity for Home / progression UI (not persisted as-is).
+ */
+data class LearningProgressionItem(
     val type: LearningActivityType,
     val contentId: String,
     val title: String,
-    val subtitle: String,
     val progressPercent: Float,
     val imageUrl: String,
     val route: String,
-)
+    val courseId: String? = null,
+    val courseTitle: String? = null,
+    val moduleId: String? = null,
+    val moduleTitle: String? = null,
+    val lessonId: String? = null,
+    val progressDetail: String = "",
+    val lastActivityAt: Long = 0L,
+) {
+    val subtitle: String
+        get() = buildList {
+            courseTitle?.takeIf { it.isNotBlank() }?.let { add(it) }
+            moduleTitle?.takeIf { it.isNotBlank() }?.let { add(it) }
+            progressDetail.takeIf { it.isNotBlank() }?.let { add(it) }
+        }.joinToString(" · ")
+}
+
+/** @see LearningProgressionItem */
+typealias ResumeLearningItem = LearningProgressionItem

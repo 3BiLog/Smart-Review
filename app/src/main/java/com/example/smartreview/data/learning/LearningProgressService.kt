@@ -1,28 +1,22 @@
 package com.example.smartreview.data.learning
 
+import android.util.Log
 import com.example.smartreview.data.auth.AuthSession
-import com.example.smartreview.data.mock.MockFlashcardData
 import com.example.smartreview.data.model.CardStudyStatus
 import com.example.smartreview.data.model.FlashcardProgressSnapshot
-import com.example.smartreview.data.model.LearningActivityType
+import com.example.smartreview.data.model.LearningProgressionItem
 import com.example.smartreview.data.model.LessonProgressSnapshot
 import com.example.smartreview.data.model.QuizProgressSnapshot
-import com.example.smartreview.data.model.ResumeLearningItem
 import com.example.smartreview.data.model.UserLearningProgress
-import com.example.smartreview.data.repository.FlashcardRepositoryProvider
 import com.example.smartreview.data.repository.LearningProgressRepository
 import com.example.smartreview.data.repository.LearningProgressRepositoryProvider
-import com.example.smartreview.data.repository.LessonRepositoryProvider
-import com.example.smartreview.data.repository.QuizRepositoryProvider
-import com.example.smartreview.ui.navigation.Screen
-import com.example.smartreview.ui.screens.lesson.lessonRoute
-import com.example.smartreview.ui.screens.quiz.quizRoute
 
 /**
  * Authenticated learning progress API (persist + resume). Gamification remains separate.
  */
 class LearningProgressService(
     private val repository: LearningProgressRepository = LearningProgressRepositoryProvider.default,
+    private val progressionResolver: LearningProgressionResolver = LearningProgressionResolver(),
 ) {
 
     suspend fun currentProgress(): UserLearningProgress? {
@@ -89,7 +83,12 @@ class LearningProgressService(
         currentProgress()?.lessonInProgress?.takeIf { it.lessonId == lessonId }
 
     suspend fun saveQuizSnapshot(snapshot: QuizProgressSnapshot) {
-        update { it.copy(quizInProgress = snapshot) }
+        update {
+            it.copy(
+                quizInProgress = snapshot,
+                lessonInProgress = null,
+            )
+        }
     }
 
     suspend fun clearQuizInProgress() {
@@ -99,56 +98,38 @@ class LearningProgressService(
     suspend fun quizSnapshotForQuiz(quizId: String): QuizProgressSnapshot? =
         currentProgress()?.quizInProgress?.takeIf { it.quizId == quizId }
 
-    suspend fun resumeLearningItems(): List<ResumeLearningItem> {
-        val progress = currentProgress() ?: return emptyList()
-        val items = mutableListOf<ResumeLearningItem>()
-
-        progress.flashcardInProgress?.let { snapshot ->
-            val deck = FlashcardRepositoryProvider.default.getDeck(snapshot.deckId)
-                ?: FlashcardRepositoryProvider.default.getDefaultDeck()
-            val total = deck.cards.size.coerceAtLeast(1)
-            val studied = snapshot.knownCount + snapshot.reviewCount
-            items += ResumeLearningItem(
-                type = LearningActivityType.FLASHCARD,
-                contentId = snapshot.deckId,
-                title = deck.title,
-                subtitle = "Flashcard · ${studied}/${total} thẻ",
-                progressPercent = studied.toFloat() / total,
-                imageUrl = "https://picsum.photos/seed/flashcard_resume/400/200",
-                route = Screen.Flashcard.route,
-            )
+    suspend fun resumeLearningItems(): List<LearningProgressionItem> {
+        val uid = AuthSession.currentUserId()
+        if (uid == null) {
+            Log.d(ResumeLearningSupport.LOG_TAG, "empty state: not authenticated")
+            return emptyList()
         }
 
-        progress.lessonInProgress?.let { snapshot ->
-            val lesson = LessonRepositoryProvider.default.getLesson(snapshot.lessonId) ?: return@let
-            val total = lesson.blocks.size.coerceAtLeast(1)
-            val viewed = snapshot.viewedBlockIds.size
-            items += ResumeLearningItem(
-                type = LearningActivityType.LESSON,
-                contentId = snapshot.lessonId,
-                title = lesson.title,
-                subtitle = "Bài học · ${viewed}/${total} block",
-                progressPercent = viewed.toFloat() / total,
-                imageUrl = "https://picsum.photos/seed/lesson_${snapshot.lessonId}/400/200",
-                route = lessonRoute(snapshot.lessonId),
-            )
+        val progress = currentProgress() ?: UserLearningProgress(uid = uid)
+        ResumeLearningSupport.logLoadedSnapshot(progress)
+
+        val (sanitized, filteredReasons) = ResumeLearningSupport.sanitize(progress)
+        filteredReasons.forEach { reason ->
+            Log.d(ResumeLearningSupport.LOG_TAG, "filtered completed: $reason")
+        }
+        if (sanitized != progress) {
+            repository.save(sanitized)
         }
 
-        progress.quizInProgress?.let { snapshot ->
-            val quiz = QuizRepositoryProvider.default.getQuiz(snapshot.quizId) ?: return@let
-            val total = quiz.questions.size.coerceAtLeast(1)
-            val answered = snapshot.answers.size
-            items += ResumeLearningItem(
-                type = LearningActivityType.QUIZ,
-                contentId = snapshot.quizId,
-                title = quiz.title,
-                subtitle = "Quiz · ${answered}/${total} câu",
-                progressPercent = answered.toFloat() / total,
-                imageUrl = "https://picsum.photos/seed/quiz_${snapshot.quizId}/400/200",
-                route = quizRoute(snapshot.quizId),
-            )
+        val items = progressionResolver.resolveFromProgress(sanitized)
+        if (items.isEmpty()) {
+            Log.d(ResumeLearningSupport.LOG_TAG, "empty state")
+        } else {
+            items.forEach { item ->
+                Log.d(
+                    ResumeLearningSupport.LOG_TAG,
+                    "resume item: type=${item.type} id=${item.contentId} route=${item.route}",
+                )
+            }
         }
-
+        if (filteredReasons.isNotEmpty() && items.isEmpty()) {
+            Log.d(ResumeLearningSupport.LOG_TAG, "empty state after filtering stale snapshots")
+        }
         return items
     }
 

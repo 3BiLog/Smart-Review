@@ -13,6 +13,9 @@ import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -29,7 +32,9 @@ import coil.compose.AsyncImage
 import com.example.smartreview.data.model.CourseModule
 import com.example.smartreview.data.model.LessonItem
 import com.example.smartreview.ui.screens.courses.difficultyColor
-import com.example.smartreview.ui.screens.lesson.lessonRoute
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateHeroPlay
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateStartLearning
 import com.example.smartreview.ui.theme.*
 
 // ─── Route ───────────────────────────────────────────────────────────────────
@@ -47,6 +52,14 @@ fun CourseDetailScreen(
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     val course = state.course ?: return
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) vm.refreshProgression()
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
         containerColor = Background,
@@ -61,7 +74,14 @@ fun CourseDetailScreen(
                 price        = course.formattedPrice,
                 isBookmarked = state.isBookmarked,
                 onBookmark   = { vm.toggleBookmark() },
-                onBuy        = { /* navigate to payment */ },
+                onBuy        = {
+                    if (course.formattedPrice == "Miễn phí") {
+                        navController.navigateStartLearning(
+                            course = course,
+                            preferredLessonId = state.recommendedNextLessonId,
+                        )
+                    }
+                },
             )
         },
     ) { padding ->
@@ -77,7 +97,9 @@ fun CourseDetailScreen(
                 HeroVideoSection(
                     imageUrl     = course.imageUrl,
                     isBestseller = course.isBestseller,
-                    onPlay       = { navController.navigate("lesson_player/l1") },
+                    onPlay       = {
+                        navController.navigateHeroPlay(course = course)
+                    },
                 )
             }
 
@@ -125,6 +147,43 @@ fun CourseDetailScreen(
                         duration    = "${course.durationHours}h",
                         lessonCount = course.lessonCount,
                     )
+
+                    if (state.totalLessonCount > 0) {
+                        Spacer(Modifier.height(12.dp))
+                        LinearProgressIndicator(
+                            progress = { state.courseProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = Primary,
+                            trackColor = SurfaceVariant,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Tiến độ: ${state.completedLessonCount}/${state.totalLessonCount} bài hoàn thành",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = OnSurfaceVariant,
+                        )
+                    }
+
+                    state.recommendedNextLessonTitle?.let { nextTitle ->
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = {
+                                navController.navigateStartLearning(
+                                    course = course,
+                                    preferredLessonId = state.recommendedNextLessonId,
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Tiếp tục: $nextTitle", color = Primary)
+                        }
+                    }
                 }
             }
 
@@ -164,7 +223,7 @@ fun CourseDetailScreen(
                     onToggle   = { vm.toggleModule(module.id) },
                     onLessonClick = { lesson ->
                         if (!lesson.isLocked) {
-                            navController.navigate(lessonRoute(lesson.id))
+                            navController.navigateLessonVideo(lesson.id)
                         }
                     },
                     modifier   = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

@@ -1,5 +1,6 @@
 package com.example.smartreview.data.mock
 
+import com.example.smartreview.data.content.ContentIds
 import com.example.smartreview.data.model.Quiz
 import com.example.smartreview.data.model.QuizOption
 import com.example.smartreview.data.model.QuizQuestion
@@ -8,10 +9,10 @@ object MockQuizData {
 
     private val quizzes = listOf(
         Quiz(
-            id = "q_l1_check",
+            id = ContentIds.Quiz.REACT_INTRO,
             title = "Kiểm tra: React cơ bản",
-            subtitle = "Bài l1 · 3 câu hỏi",
-            lessonId = "l1",
+            subtitle = "Bài intro · 3 câu",
+            lessonId = ContentIds.Lesson.REACT_INTRO,
             questions = listOf(
                 question(
                     id = "q1",
@@ -48,10 +49,10 @@ object MockQuizData {
             ),
         ),
         Quiz(
-            id = "q_l2_check",
+            id = ContentIds.Quiz.REACT_COMPONENTS,
             title = "Kiểm tra: Component Architecture",
-            subtitle = "Bài l2 · 2 câu hỏi",
-            lessonId = "l2",
+            subtitle = "Bài components · 2 câu",
+            lessonId = ContentIds.Lesson.REACT_COMPONENTS,
             questions = listOf(
                 question(
                     id = "q1",

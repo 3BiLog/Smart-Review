@@ -13,7 +13,6 @@ object GamificationRepositoryProvider {
 
     val default: GamificationRepository = FirestoreGamificationRepository(
         userRepository = UserRepositoryProvider.default,
-        fallback = mock,
     )
 }
 

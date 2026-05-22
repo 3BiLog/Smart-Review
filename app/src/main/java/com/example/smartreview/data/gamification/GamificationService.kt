@@ -19,7 +19,7 @@ class GamificationService(
     ): GamificationRewardResult {
         val uid = authRepository.getCurrentUser()?.uid
             ?: return GamificationRewardResult.NotAuthenticated
-        if (idempotencyKey.isBlank()) return GamificationRewardResult.Failed
+        if (idempotencyKey.isBlank()) return GamificationRewardResult.Failed()
         return gamificationRepository.applyReward(uid, action, idempotencyKey)
     }
 
