@@ -28,8 +28,8 @@ data class ProfileUiState(
     val dailyGoalMinutes: Int = 30,
     val darkModeEnabled: Boolean = true,
     val notificationsOn: Boolean = true,
-    val streak: Int = 0,
-    val xp: Int = 0,
+    val streak: Long = 0,      // FIXED: Changed to Long to match UserProfile
+    val xp: Long = 0,          // FIXED: Changed to Long to match UserProfile
     val isLoadingProfile: Boolean = false,
     val isSavingProfile: Boolean = false,
     val isAuthenticated: Boolean = false,
@@ -171,14 +171,14 @@ class ProfileViewModel(
     }
 
     private fun ProfileUiState.applyUserProfile(profile: UserProfile): ProfileUiState = copy(
-        avatarUrl = profile.avatarUrl,
+        avatarUrl = profile.avatarUrl ?: this.avatarUrl,
         displayName = profile.displayName,
-        levelLabel = levelLabelFromXp(profile.xp),
+        levelLabel = levelLabelFromXp(profile.xp),  // FIXED: Pass Long
         fullName = profile.displayName,
         email = profile.email,
         phone = profile.phone,
-        streak = profile.streak,
-        xp = profile.xp,
+        streak = profile.streak,   // FIXED: Long -> Long
+        xp = profile.xp,           // FIXED: Long -> Long
         isLoadingProfile = false,
         isSavingProfile = false,
         isEditMode = false,
@@ -187,8 +187,9 @@ class ProfileViewModel(
         isAuthenticated = true,
     )
 
-    private fun levelLabelFromXp(xp: Int): String {
-        val level = (xp / 100).coerceAtLeast(1)
+    // FIXED: Accept Long parameter
+    private fun levelLabelFromXp(xp: Long): String {
+        val level = (xp / 100).toInt().coerceAtLeast(1)
         return "Cấp $level · Người học"
     }
 }

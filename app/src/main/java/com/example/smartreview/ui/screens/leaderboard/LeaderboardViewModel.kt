@@ -80,12 +80,16 @@ class LeaderboardViewModel(
 
     private fun publishScaledEntries(base: List<LeaderboardEntry>, tab: LeaderboardTab) {
         val multiplier = tabMultiplier(tab)
-        val maxBaseScore = base.maxOfOrNull { it.score }?.coerceAtLeast(1) ?: 1
+        // FIXED: Handle empty list and get max score as Long
+        val maxBaseScore = base.maxOfOrNull { it.score }?.coerceAtLeast(1) ?: 1L
+        // FIXED: Convert Long to Float for scaling, then back to Long
         val scaled = base.map { entry ->
-            val scaledScore = (entry.score * multiplier).toInt()
+            // FIXED: Multiply Long by Float, convert to Long
+            val scaledScore = (entry.score.toFloat() * multiplier).toLong()
+            val progress = scaledScore.toFloat() / (maxBaseScore.toFloat() * multiplier).coerceAtLeast(1f)
             entry.copy(
                 score = scaledScore,
-                progress = scaledScore.toFloat() / (maxBaseScore * multiplier).coerceAtLeast(1f),
+                progress = progress,
             )
         }
         val top3 = scaled.take(3)

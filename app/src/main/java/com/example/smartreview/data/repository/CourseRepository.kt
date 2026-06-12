@@ -1,18 +1,18 @@
 package com.example.smartreview.data.repository
 
 import com.example.smartreview.data.model.Course
-import com.example.smartreview.data.model.LessonItem
+import kotlinx.coroutines.flow.Flow
 
 /**
- * Data access contract for the Course feature.
- * ViewModels depend on this interface — not on [com.example.smartreview.data.mock.MockCourseData].
+ * Data access contract for course catalog and enrollment checks.
+ *
+ * Implementations read production Firestore `courses` documents through
+ * [com.example.smartreview.data.remote.firestore.CourseFirestoreMapper].
  */
 interface CourseRepository {
-
-    fun getCourses(): List<Course>
-
-    /** Returns the course for [courseId], or the first available course as fallback. */
-    fun getCourseById(courseId: String): Course
-
-    fun getUpNextLessons(): List<LessonItem>
+    fun getAllCourses(): Flow<List<Course>>
+    suspend fun getCourseById(courseId: String): Course?
+    suspend fun getCourseWithProgress(courseId: String, userId: String): Any?
+    suspend fun isUserEnrolled(courseId: String, userId: String): Boolean
+    suspend fun getCourseReviews(courseId: String): List<Any>
 }

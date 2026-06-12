@@ -3,7 +3,8 @@ package com.example.smartreview.ui.screens.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.smartreview.data.auth.AuthSession
-import com.example.smartreview.data.learning.LearningProgressServiceProvider
+// TEMPORARILY COMMENTED - LearningProgressServiceProvider is disabled
+// import com.example.smartreview.data.learning.LearningProgressServiceProvider
 import com.example.smartreview.data.model.LearningProgressionItem
 import com.example.smartreview.data.repository.UserRepository
 import com.example.smartreview.data.repository.UserRepositoryProvider
@@ -36,9 +37,9 @@ data class RecommendedCard(
 data class HomeUiState(
     val userName:       String       = "Scholar",
     val level:          Int          = 12,
-    val xp:             Int          = 1250,
-    val streak:         Int          = 5,
-    val goalProgress:   Float        = 0.6f,   // 15/25 min
+    val xp:             Long         = 1250,
+    val streak:         Long         = 5,
+    val goalProgress:   Float        = 0.6f,
     val goalCurrent:    Int          = 15,
     val goalTarget:     Int          = 25,
     val continueCourses: List<CourseCard>    = emptyList(),
@@ -56,9 +57,16 @@ class HomeViewModel(
     init {
         loadMockData()
         observeGamificationProfile()
-        observeResumeLearning()
+        // TEMPORARILY COMMENTED - Resume learning is disabled
+        // observeResumeLearning()
     }
 
+    /** No-op while resume-learning observer is disabled; keeps [HomeScreen] lifecycle hook compile-safe. */
+    fun refreshResumeLearning() {
+        // Resume learning re-enablement is deferred to a later phase.
+    }
+
+    /*
     private fun observeResumeLearning() {
         AuthSession.ensureStarted()
         viewModelScope.launch {
@@ -83,6 +91,7 @@ class HomeViewModel(
             }
         }
     }
+    */
 
     private fun observeGamificationProfile() {
         AuthSession.ensureStarted()
@@ -96,12 +105,16 @@ class HomeViewModel(
                 }
                 .collect { profile ->
                     profile ?: return@collect
+                    val xpValue = profile.xp
+                    val streakValue = profile.streak
+                    val levelValue = (xpValue / 100).toInt().coerceAtLeast(1)
+
                     _uiState.update {
                         it.copy(
                             userName = profile.displayName,
-                            xp = profile.xp,
-                            streak = profile.streak,
-                            level = (profile.xp / 100).coerceAtLeast(1),
+                            xp = xpValue,
+                            streak = streakValue,
+                            level = levelValue,
                         )
                     }
                 }

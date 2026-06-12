@@ -20,6 +20,8 @@ import com.example.smartreview.ui.navigation.LearningFlowNavigation
 import com.example.smartreview.ui.navigation.Screen
 import com.example.smartreview.ui.screens.lesson.lessonContentRoute
 import com.example.smartreview.ui.screens.quiz.quizRoute
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 /**
  * Maps persisted snapshots to [LearningProgressionItem] using Course → Module → Lesson catalog.
@@ -29,7 +31,9 @@ class LearningProgressionResolver(
     private val lessonRepository: LessonRepository = LessonRepositoryProvider.default,
 ) {
 
-    private val courses: List<Course> by lazy { courseRepository.getCourses() }
+    private val courses: List<Course> by lazy {
+        runBlocking { courseRepository.getAllCourses().first() }
+    }
 
     fun resolveFromProgress(progress: UserLearningProgress): List<LearningProgressionItem> {
         val items = buildList {

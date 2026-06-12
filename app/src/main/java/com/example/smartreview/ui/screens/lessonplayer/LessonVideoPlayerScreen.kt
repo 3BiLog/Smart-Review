@@ -29,6 +29,7 @@ import com.example.smartreview.data.model.LessonItem
 import com.example.smartreview.ui.components.YoutubeLessonPlayer
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonContent
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
+import com.example.smartreview.ui.navigation.Screen
 import com.example.smartreview.ui.theme.*
 
 // ─── Route ───────────────────────────────────────────────────────────────────
@@ -40,8 +41,9 @@ fun lessonPlayerRoute(lessonId: String) = "lesson_player/$lessonId"
 fun LessonVideoPlayerScreen(
     navController: NavHostController,
     lessonId:      String,
+    courseId:      String? = null,
     vm: LessonPlayerViewModel = viewModel(
-        factory = LessonPlayerViewModel.provideFactory(lessonId)
+        factory = LessonPlayerViewModel.provideFactory(lessonId, courseId)
     ),
 ) {
     val state  by vm.uiState.collectAsStateWithLifecycle()
@@ -64,11 +66,41 @@ fun LessonVideoPlayerScreen(
 
             // ── 1. Video player ───────────────────────────────────────────
             item {
+                // Determine CTA and action: if lesson has content blocks, go to content; otherwise go to next lesson
+                val hasBlocks = state.hasContentBlocks
+                val nextLesson = state.upNextLessons.firstOrNull()
+                val ctaText = if (hasBlocks) "Tiếp tục — Tóm tắt bài học" else (if (nextLesson != null) "Bài học tiếp theo" else "Hoàn thành bài học")
                 VideoPlayerArea(
                     videoId = state.youtubeVideoId,
                     thumbnailUrl = lesson.thumbnailUrl,
                     videoError = state.videoError,
-                    onContinueToContent = { navController.navigateLessonContent(lesson.id) },
+                    ctaText = ctaText,
+                    onContinue = {
+                        if (hasBlocks) {
+                            navController.navigateLessonContent(lesson.id)
+                        } else {
+                            if (nextLesson == null) {
+                                navController.popBackStack()
+                            } else {
+                                when (nextLesson.lessonType) {
+                                    com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> {
+                                        navController.navigateLessonVideo(nextLesson.id, courseId = courseId)
+                                    }
+                                    com.example.smartreview.data.model.LessonType.READING -> {
+                                        navController.navigateLessonContent(nextLesson.id)
+                                    }
+                                    com.example.smartreview.data.model.LessonType.QUIZ -> {
+                                        navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(nextLesson.quizId ?: nextLesson.id)) {
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                    com.example.smartreview.data.model.LessonType.FLASHCARD -> {
+                                        navController.navigate(Screen.Flashcard.route) { launchSingleTop = true }
+                                    }
+                                }
+                            }
+                        }
+                    },
                 )
             }
 
@@ -107,7 +139,14 @@ fun LessonVideoPlayerScreen(
                 PlaylistItem(
                     item     = item,
                     isCurrent = item.isCurrentlyPlaying,
-                    onClick  = { navController.navigateLessonVideo(item.id) },
+                    onClick  = {
+                        when (item.lessonType) {
+                            com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> navController.navigateLessonVideo(item.id, courseId = courseId)
+                            com.example.smartreview.data.model.LessonType.READING -> navController.navigateLessonContent(item.id)
+                            com.example.smartreview.data.model.LessonType.QUIZ -> navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(item.quizId ?: item.id))
+                            com.example.smartreview.data.model.LessonType.FLASHCARD -> navController.navigate(Screen.Flashcard.route)
+                        }
+                    },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
@@ -123,7 +162,8 @@ private fun VideoPlayerArea(
     videoId: String?,
     thumbnailUrl: String,
     videoError: String?,
-    onContinueToContent: () -> Unit,
+    ctaText: String = "Tiếp tục — Tóm tắt bài học",
+    onContinue: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Box(
@@ -162,7 +202,7 @@ private fun VideoPlayerArea(
             }
         }
         Button(
-            onClick = onContinueToContent,
+            onClick = onContinue,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -171,7 +211,7 @@ private fun VideoPlayerArea(
         ) {
             Icon(Icons.Default.ArrowForward, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("Tiếp tục — Tóm tắt bài học")
+            Text(ctaText)
         }
     }
 }

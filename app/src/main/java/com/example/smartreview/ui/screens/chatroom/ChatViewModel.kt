@@ -14,20 +14,20 @@ import com.example.smartreview.data.repository.CommunityRealtimeRepository
 import com.example.smartreview.data.repository.CommunityRepository
 import com.example.smartreview.data.repository.CommunityRepositoryProvider
 import com.example.smartreview.data.remote.firestore.UserFirestoreMapper
-import com.example.smartreview.data.util.ChatTimeFormatter
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Date
 import java.util.UUID
 
 data class ChatUiState(
     val roomName: String = "",
-    val onlineCount: Int = 1284,
     val messages: List<ChatMessage> = emptyList(),
     val inputText: String = "",
-    val isTyping: Boolean = true,
+    val isTyping: Boolean = false,  // FIXED: Default to false
     val sendError: String? = null,
     val deleteError: String? = null,
     val pendingDeleteMessageId: String? = null,
@@ -143,7 +143,7 @@ class ChatViewModel(
     private fun canDeleteMessage(messageId: String): Boolean {
         val message = _uiState.value.messages.find { it.id == messageId } ?: return false
         return message.isCurrentUser &&
-            isMessageFromCurrentUser(message.senderId, currentUserId())
+                isMessageFromCurrentUser(message.senderId, currentUserId())
     }
 
     private fun applyOwnership(messages: List<ChatMessage>): List<ChatMessage> =
@@ -154,6 +154,7 @@ class ChatViewModel(
         incoming: List<ChatMessage>,
     ): List<ChatMessage> = (current + incoming).distinctBy { it.id }
 
+    // FIXED: Build message with correct fields matching Firestore schema
     private fun buildOutgoingMessage(text: String): ChatMessage {
         val authUser = authRepository.getCurrentUser()
         val senderId = authUser?.uid ?: "me"
@@ -164,15 +165,20 @@ class ChatViewModel(
             "Bạn"
         }
         val senderAvatar = UserFirestoreMapper.defaultAvatarUrl(senderId)
-        val createdAt = System.currentTimeMillis()
+        val now = Timestamp(Date())
+
         return ChatMessage(
             id = UUID.randomUUID().toString(),
-            senderId = senderId,
-            senderName = senderName,
+            senderId = senderId,           // Maps to "userId" in Firestore
+            senderName = senderName,       // Maps to "userName" in Firestore
             senderAvatar = senderAvatar,
-            content = text,
-            time = ChatTimeFormatter.format(createdAt),
+            content = text,                // Maps to "text" in Firestore
+            timestamp = now,               // FIXED: Use Timestamp instead of String
             type = MessageType.TEXT,
+            fileUrl = null,
+            fileName = null,
+            fileType = null,
+            isImage = false
         )
     }
 

@@ -66,8 +66,8 @@ fun ProfileScreen(
                 displayName = state.displayName,
                 levelLabel = state.levelLabel,
                 email = if (state.isAuthenticated) state.email else "",
-                streak = state.streak,
-                xp = state.xp,
+                streak = state.streak.toInt(),   // FIXED: Convert Long to Int
+                xp = state.xp.toInt(),           // FIXED: Convert Long to Int
                 isLoading = state.isLoadingProfile,
                 isAuthenticated = state.isAuthenticated,
                 isEditMode = state.isEditMode,

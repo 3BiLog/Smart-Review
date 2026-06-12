@@ -71,7 +71,11 @@ class CourseDetailViewModel(
         applyProgression(template)
     }
 
-    private suspend fun applyProgression(template: Course) {
+    private suspend fun applyProgression(template: Course?) {
+        if (template == null) {
+            _uiState.update { it.copy(isLoading = false) }
+            return
+        }
         val snapshot = buildProgressSnapshot()
         val result = progressionPolicy.applyToCourse(template, snapshot)
         val firstUnlockedModuleId = result.course.modules.firstOrNull { !it.isLocked }?.id

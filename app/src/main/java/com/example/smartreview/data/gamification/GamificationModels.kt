@@ -13,11 +13,7 @@ enum class XpRewardAction(
     DAILY_LOGIN(xpAmount = 10, countsTowardStreak = false),
 }
 
-data class StreakUpdate(
-    val newStreak: Int,
-    val streakIncremented: Boolean,
-    val todayStudyKey: String,
-)
+// REMOVED: StreakUpdate - now using StreakUpdateResult from StreakCalculator.kt
 
 sealed class GamificationRewardResult {
     data class Success(

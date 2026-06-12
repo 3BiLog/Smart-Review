@@ -48,8 +48,8 @@ fun HomeScreen(
         topBar = {
             HomeTopBar(
                 userName = state.userName,
-                xp = state.xp,
-                streak = state.streak,
+                xp = state.xp.toInt(),      // FIXED: Convert Long to Int
+                streak = state.streak.toInt(),  // FIXED: Convert Long to Int
             )
         },
     ) { padding ->

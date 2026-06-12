@@ -30,6 +30,8 @@ import com.example.smartreview.data.model.ChatMessage
 import com.example.smartreview.data.model.MessageType
 import com.example.smartreview.ui.theme.*
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun ChatRoomScreen(
@@ -79,7 +81,6 @@ fun ChatRoomScreen(
         topBar         = {
             ChatTopBar(
                 roomName    = state.roomName,
-                onlineCount = state.onlineCount,
                 onBack      = { navController.popBackStack() },
             )
         },
@@ -122,11 +123,32 @@ fun ChatRoomScreen(
     }
 }
 
+// Helper function to format timestamp
+private fun formatTimestamp(timestamp: com.google.firebase.Timestamp?): String {
+    if (timestamp == null) return ""
+    val date = timestamp.toDate()
+    val now = Date()
+    val calendar = Calendar.getInstance()
+    calendar.time = date
+
+    return when {
+        isToday(date) -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
+        else -> SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault()).format(date)
+    }
+}
+
+private fun isToday(date: Date): Boolean {
+    val today = Calendar.getInstance()
+    val target = Calendar.getInstance().apply { time = date }
+    return today.get(Calendar.YEAR) == target.get(Calendar.YEAR) &&
+            today.get(Calendar.DAY_OF_YEAR) == target.get(Calendar.DAY_OF_YEAR)
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TOP BAR
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun ChatTopBar(roomName: String, onlineCount: Int, onBack: () -> Unit) {
+private fun ChatTopBar(roomName: String, onBack: () -> Unit) {
     Surface(color = GlassBg, tonalElevation = 0.dp) {
         Row(
             verticalAlignment     = Alignment.CenterVertically,
@@ -164,15 +186,6 @@ private fun ChatTopBar(roomName: String, onlineCount: Int, onBack: () -> Unit) {
                         fontWeight = FontWeight.Bold,
                         color      = Primary,
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Secondary))
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            "$onlineCount online",
-                            style  = MaterialTheme.typography.labelSmall,
-                            color  = Secondary,
-                        )
-                    }
                 }
             }
             Row {
@@ -214,6 +227,8 @@ private fun TextMessageBubble(
     message: ChatMessage,
     onDeleteRequest: (() -> Unit)? = null,
 ) {
+    val formattedTime = formatTimestamp(message.timestamp)
+
     if (message.isCurrentUser) {
         // Sent – right-aligned, gradient bubble
         Column(
@@ -241,7 +256,7 @@ private fun TextMessageBubble(
             }
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(message.time, style = MaterialTheme.typography.labelSmall, color = OnSurfaceVariant)
+                Text(formattedTime, style = MaterialTheme.typography.labelSmall, color = OnSurfaceVariant)
                 Icon(Icons.Default.DoneAll, null, tint = Secondary, modifier = Modifier.size(14.dp))
             }
         }
@@ -273,7 +288,7 @@ private fun TextMessageBubble(
                     Text(message.content, style = MaterialTheme.typography.bodyMedium,
                         color = OnSurface, modifier = Modifier.padding(12.dp))
                 }
-                Text(message.time, style = MaterialTheme.typography.labelSmall,
+                Text(formattedTime, style = MaterialTheme.typography.labelSmall,
                     color = OnSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
             }
         }
@@ -282,6 +297,10 @@ private fun TextMessageBubble(
 
 @Composable
 private fun ImageMessageBubble(message: ChatMessage) {
+    val formattedTime = formatTimestamp(message.timestamp)
+    // FIXED: Use fileUrl instead of imageUrl
+    val imageUrl = message.fileUrl
+
     Row(
         verticalAlignment     = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -301,7 +320,7 @@ private fun ImageMessageBubble(message: ChatMessage) {
                     RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp)),
             ) {
                 Column {
-                    message.imageUrl?.let { url ->
+                    imageUrl?.let { url ->
                         AsyncImage(
                             model = url, contentDescription = null,
                             contentScale = ContentScale.Crop,
@@ -313,7 +332,7 @@ private fun ImageMessageBubble(message: ChatMessage) {
                         color = OnSurface, modifier = Modifier.padding(10.dp))
                 }
             }
-            Text(message.time, style = MaterialTheme.typography.labelSmall,
+            Text(formattedTime, style = MaterialTheme.typography.labelSmall,
                 color = OnSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
         }
     }

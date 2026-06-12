@@ -1,6 +1,7 @@
 package com.example.smartreview
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,12 +14,17 @@ import com.example.smartreview.data.repository.LearningProgressRepositoryProvide
 import com.example.smartreview.ui.navigation.AppAuthSessionGate
 import com.example.smartreview.ui.navigation.SmartReviewNavGraph
 import com.example.smartreview.ui.theme.SmartReviewTheme
+import com.google.firebase.FirebaseApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AuthSession.ensureStarted()
         LearningProgressRepositoryProvider.init(applicationContext)
+        Log.d(
+            "FIREBASE_PROJECT",
+            FirebaseApp.getInstance().options.projectId ?: "NULL"
+        )
         setContent {
             SmartReviewTheme {
                 Surface(
@@ -34,51 +40,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-// // Trong MainActivity.kt, kiểm tra nếu onboarding đã hoàn thành:
-//
-//class MainActivity : ComponentActivity() {
-//
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        super.onCreate(savedInstanceState)
-//        val prefs    = getSharedPreferences("smart_review", MODE_PRIVATE)
-//        val hasSeenOnboarding = prefs.getBoolean("onboarding_done", false)
-//
-//        setContent {
-//            SmartReviewTheme {
-//                val navController = rememberNavController()
-//
-//                // ── Decide start destination ─────────────────────────────────
-//                val startRoute = if (hasSeenOnboarding) Screen.Home.route
-//                                 else OnboardingRoutes.GRAPH
-//
-//                NavHost(
-//                    navController    = navController,
-//                    startDestination = startRoute,
-//                ) {
-//                    // Onboarding nested graph
-//                    onboardingGraph(
-//                        navController        = navController,
-//                        onOnboardingFinished = {
-//                            prefs.edit().putBoolean("onboarding_done", true).apply()
-//                            navController.navigate(Screen.Home.route) {
-//                                popUpTo(OnboardingRoutes.GRAPH) { inclusive = true }
-//                            }
-//                        },
-//                        onSkip = {
-//                            prefs.edit().putBoolean("onboarding_done", true).apply()
-//                            navController.navigate(Screen.Home.route) {
-//                                popUpTo(OnboardingRoutes.GRAPH) { inclusive = true }
-//                            }
-//                        },
-//                    )
-//
-//                    // All other app routes
-//                    composable(Screen.Home.route)      { HomeScreen(navController) }
-//                    composable(Screen.Profile.route)   { ProfileScreen(navController) }
-//                    // ... other routes
-//                }
-//            }
-//        }
-//    }
-//}

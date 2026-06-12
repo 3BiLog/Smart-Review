@@ -33,11 +33,34 @@ import com.example.smartreview.ui.components.AuthRequiredBanner
 import com.example.smartreview.ui.components.SmartReviewBottomBar
 import com.example.smartreview.ui.screens.leaderboard.LEADERBOARD_ROUTE
 import com.example.smartreview.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.*
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 const val COMMUNITY_ROOMS_ROUTE = "community_rooms"
 const val CHAT_ROOM_ROUTE       = "chat_room/{roomId}"
 fun chatRoomRoute(roomId: String) = "chat_room/$roomId"
+
+// Helper to format timestamp
+private fun formatTimestamp(timestamp: com.google.firebase.Timestamp?): String {
+    if (timestamp == null) return ""
+    val date = timestamp.toDate()
+    val now = Date()
+    val calendar = Calendar.getInstance()
+    calendar.time = date
+
+    return when {
+        isToday(date) -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
+        else -> SimpleDateFormat("dd/MM/yy", Locale.getDefault()).format(date)
+    }
+}
+
+private fun isToday(date: Date): Boolean {
+    val today = Calendar.getInstance()
+    val target = Calendar.getInstance().apply { time = date }
+    return today.get(Calendar.YEAR) == target.get(Calendar.YEAR) &&
+            today.get(Calendar.DAY_OF_YEAR) == target.get(Calendar.DAY_OF_YEAR)
+}
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 @Composable
@@ -301,6 +324,8 @@ private fun HeroCard(
 @Composable
 private fun RoomItem(room: ChatRoom, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val hasUnread = room.unreadCount > 0
+    // FIXED: Format last message time, handle null
+    val formattedTime = formatTimestamp(room.lastMessageTime)
 
     Surface(
         color    = GlassBg,
@@ -345,13 +370,13 @@ private fun RoomItem(room: ChatRoom, onClick: () -> Unit, modifier: Modifier = M
                             tint = roomIconTint(room.iconType), modifier = Modifier.size(26.dp))
                     }
                 }
-                // Online/offline dot
+                // FIXED: Removed isOnline, always show as online (or use memberCount > 0)
                 Box(
                     modifier = Modifier
                         .size(14.dp)
                         .align(Alignment.BottomEnd)
                         .clip(CircleShape)
-                        .background(if (room.isOnline) Secondary else OnSurfaceVariant)
+                        .background(if (room.memberCount > 0) Secondary else OnSurfaceVariant)
                         .border(2.dp, Background, CircleShape)
                 )
             }
@@ -375,16 +400,17 @@ private fun RoomItem(room: ChatRoom, onClick: () -> Unit, modifier: Modifier = M
                         modifier   = Modifier.weight(1f),
                     )
                     Text(
-                        room.lastMessageTime,
+                        formattedTime,
                         style  = MaterialTheme.typography.labelSmall,
                         color  = if (hasUnread) Primary else OnSurfaceVariant,
                     )
                 }
 
                 Spacer(Modifier.height(4.dp))
+                // FIXED: Handle null lastMessage
+                val lastMessageText = room.lastMessage ?: "Chưa có tin nhắn"
                 Text(
-                    text     = if (room.isCurrentUserLast) "Bạn: ${room.lastMessage.removePrefix("Bạn: ")}"
-                    else room.lastMessage,
+                    text     = if (room.isCurrentUserLast) "Bạn: $lastMessageText" else lastMessageText,
                     style    = MaterialTheme.typography.bodySmall,
                     color    = if (hasUnread) OnSurface else OnSurfaceVariant,
                     fontWeight = if (hasUnread) FontWeight.Medium else FontWeight.Normal,
@@ -476,7 +502,7 @@ private fun SuggestedFeaturedCard(room: ChatRoom, onClick: () -> Unit, modifier:
                 Spacer(Modifier.height(6.dp))
                 Text(room.name, style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold, color = OnSurface)
-                Text("${room.memberCount} thành viên đang trực tuyến",
+                Text("${room.memberCount} thành viên",
                     style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
             }
             Box(
@@ -514,7 +540,9 @@ private fun SuggestedSmallCard(room: ChatRoom, onClick: () -> Unit, modifier: Mo
             Spacer(Modifier.height(8.dp))
             Text(room.name, style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold, color = OnSurface, maxLines = 1)
-            Text(room.lastMessage, style = MaterialTheme.typography.labelSmall, color = OnSurfaceVariant)
+            // FIXED: Handle null lastMessage
+            val lastMessageText = room.lastMessage ?: "Chưa có tin nhắn"
+            Text(lastMessageText, style = MaterialTheme.typography.labelSmall, color = OnSurfaceVariant, maxLines = 1)
         }
     }
 }

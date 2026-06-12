@@ -1,6 +1,14 @@
 package com.example.smartreview.data.model
 
 // ─── Core domain models ───────────────────────────────────────────────────────
+//
+// Populated from Firestore via [com.example.smartreview.data.remote.firestore.CourseFirestoreMapper].
+// Production field mapping (DA3-master):
+//   thumbnailUrl -> imageUrl
+//   level        -> difficulty
+//   ratingCount  -> reviewCount
+//   totalDurationHours -> durationHours
+//   modules[] / lessons[] embedded arrays
 
 data class Course(
     val id:              String,
@@ -41,6 +49,8 @@ data class CourseModule(
     val isLocked:      Boolean,
 )
 
+enum class LessonType { VIDEO, READING, QUIZ, FLASHCARD, UNKNOWN }
+
 data class LessonItem(
     val id:               String,
     val title:            String,
@@ -50,11 +60,19 @@ data class LessonItem(
     val isCurrentlyPlaying: Boolean = false,
     /** YouTube URL for [LessonVideoPlayerScreen]; may be enriched from [LessonContent]. */
     val videoUrl:         String = "",
+    /** XP granted on completion — from Firestore lesson.xpReward. */
+    val xpReward:         Int = 0,
+    /** Type of lesson (video, reading, quiz, flashcard). */
+    val lessonType:       LessonType = LessonType.VIDEO,
+    /** Optional quizId referenced by this lesson (may differ from lesson.id). */
+    val quizId:            String? = null,
+    /** Optional raw Firestore lesson payload used for rich content hydration. */
+    val contentData:      Map<String, Any?>? = null,
 ) {
-    val formattedDuration: String
-        get() {
-            val m = durationSeconds / 60
-            val s = durationSeconds % 60
-            return "%d:%02d".format(m, s)
-        }
+val formattedDuration: String
+    get() {
+        val m = durationSeconds / 60
+        val s = durationSeconds % 60
+        return "%d:%02d".format(m, s)
+    }
 }

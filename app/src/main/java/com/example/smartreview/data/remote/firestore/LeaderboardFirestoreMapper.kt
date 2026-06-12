@@ -15,13 +15,16 @@ object LeaderboardFirestoreMapper {
         currentUserId: String?,
     ): List<LeaderboardEntry> {
         if (profiles.isEmpty()) return emptyList()
-        val maxXp = profiles.maxOf { it.xp }.coerceAtLeast(1)
-        return profiles.mapIndexed { index, profile ->
+
+        val ranked = profiles.sortedByDescending { it.xp }
+        val maxXp = ranked.first().xp.coerceAtLeast(1)
+
+        return ranked.mapIndexed { index, profile ->
             LeaderboardEntry(
                 rank = index + 1,
                 userId = profile.uid,
                 displayName = profile.displayName,
-                avatarUrl = profile.avatarUrl,
+                avatarUrl = profile.avatarUrl ?: UserFirestoreMapper.defaultAvatarUrl(profile.uid),
                 score = profile.xp,
                 progress = profile.xp.toFloat() / maxXp,
                 isCurrentUser = !currentUserId.isNullOrBlank() && profile.uid == currentUserId,

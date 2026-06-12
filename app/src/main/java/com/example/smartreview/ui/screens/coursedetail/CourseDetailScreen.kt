@@ -35,6 +35,8 @@ import com.example.smartreview.ui.screens.courses.difficultyColor
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateHeroPlay
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateStartLearning
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonContent
+import com.example.smartreview.ui.navigation.Screen
 import com.example.smartreview.ui.theme.*
 
 // ─── Route ───────────────────────────────────────────────────────────────────
@@ -223,10 +225,16 @@ fun CourseDetailScreen(
                     onToggle   = { vm.toggleModule(module.id) },
                     onLessonClick = { lesson ->
                         if (!lesson.isLocked) {
-                            navController.navigateLessonVideo(lesson.id)
+                        when (lesson.lessonType) {
+                            com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> navController.navigateLessonVideo(lesson.id, courseId = course.id)
+                            com.example.smartreview.data.model.LessonType.READING -> navController.navigateLessonContent(lesson.id)
+                            com.example.smartreview.data.model.LessonType.QUIZ -> navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(lesson.quizId ?: lesson.id))
+                            com.example.smartreview.data.model.LessonType.FLASHCARD -> navController.navigate(Screen.Flashcard.route)
                         }
-                    },
-                    modifier   = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    }
+                },
+
+                modifier   = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
         }

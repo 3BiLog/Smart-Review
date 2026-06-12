@@ -1,7 +1,10 @@
 package com.example.smartreview.data.repository
 
 import com.example.smartreview.data.repository.firestore.FirestoreCommunityRepository
-import com.example.smartreview.data.repository.mock.MockCommunityRepository
+import com.example.smartreview.data.model.ChatMessage
+import com.example.smartreview.data.model.ChatRoom
+// TEMPORARILY COMMENTED - Fix later when mock files are restored
+// import com.example.smartreview.data.repository.mock.MockCommunityRepository
 
 /**
  * Lightweight access point until DI (e.g. Hilt) is added.
@@ -13,9 +16,18 @@ import com.example.smartreview.data.repository.mock.MockCommunityRepository
  */
 object CommunityRepositoryProvider {
 
-    val mock: CommunityRepository = MockCommunityRepository()
+    // TEMPORARILY COMMENTED - Mock is causing build errors
+    // val mock: CommunityRepository = MockCommunityRepository()
 
-    private val firestoreRepository = FirestoreCommunityRepository(fallback = mock)
+    // Temporary empty fallback
+    private val emptyFallback = object : CommunityRepository {
+        override fun getRooms(): List<ChatRoom> = emptyList()
+        override fun getSuggestedRooms(): List<ChatRoom> = emptyList()
+        override fun getRoomName(roomId: String): String = ""
+        override fun getMessages(roomId: String): List<ChatMessage> = emptyList()
+    }
+
+    private val firestoreRepository = FirestoreCommunityRepository(fallback = emptyFallback)
 
     val default: CommunityRepository = firestoreRepository
 

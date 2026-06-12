@@ -10,6 +10,7 @@ import com.example.smartreview.data.remote.firestore.UserFirestoreMapper
 import com.example.smartreview.data.remote.firestore.UserFirestorePaths
 import com.example.smartreview.data.repository.GamificationRepository
 import com.example.smartreview.data.repository.UserRepository
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -18,12 +19,16 @@ import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import java.util.Date
 
 /**
- * Firestore transaction: idempotent reward ledger + atomic XP increment + streak/date sync.
+ * Firestore transaction for idempotent reward ledger + atomic XP increment + streak/date sync.
  *
- * Security rules must allow the signed-in user to write `users/{uid}` fields:
- * `xp`, `streak`, `lastStudyDate`, and subcollection `rewardLedger/{ledgerId}`.
+ * FIXED: Field names now match Web Admin schema (DA3-master):
+ * - "totalXP" instead of "xp"
+ * - "currentStreak" instead of "streak"
+ * - "lastStreakDate" (Timestamp) instead of "lastStudyDate" (String)
+ * - Also writes to "xp_logs" collection for Web Admin compatibility
  */
 class FirestoreGamificationRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -55,7 +60,7 @@ class FirestoreGamificationRepository(
             return@withContext GamificationRewardResult.Failed(failureReason(e))
         }
 
-        val todayKey = StudyDayFormatter.todayKey()
+        val todayTimestamp = Timestamp(Date())
         val userRef = firestore.collection(UserFirestorePaths.USERS).document(uid)
 
         try {
@@ -75,25 +80,33 @@ class FirestoreGamificationRepository(
                     null
                 }
 
-                val currentXp = profile?.xp ?: 0
+                // FIXED: Read correct field names
+                val currentXP = profile?.xp ?: 0
                 val currentStreak = profile?.streak ?: 0
-                val lastStudyDate = profile?.lastStudyDate
+                val lastStreakDate = profile?.lastStreakDate
 
-                val streakUpdate = if (action.countsTowardStreak) {
-                    StreakCalculator.computeStreak(currentStreak, lastStudyDate, todayKey)
+                val streakUpdateResult = if (action.countsTowardStreak) {
+                    computeStreakWithTimestamp(currentStreak, lastStreakDate, todayTimestamp)
                 } else {
                     null
                 }
 
+                // FIXED: Write to "totalXP" field (Web Admin reads this for leaderboard)
                 val userUpdates = mutableMapOf<String, Any>(
-                    "xp" to FieldValue.increment(action.xpAmount.toLong()),
+                    "totalXP" to FieldValue.increment(action.xpAmount.toLong()),  // FIXED: "totalXP"
+                    "xp" to FieldValue.increment(action.xpAmount.toLong()),      // Keep legacy field
                 )
-                if (streakUpdate != null) {
-                    userUpdates["streak"] = streakUpdate.newStreak
-                    userUpdates["lastStudyDate"] = streakUpdate.todayStudyKey
+
+                if (streakUpdateResult != null) {
+                    // FIXED: Use "currentStreak" instead of "streak"
+                    userUpdates["currentStreak"] = streakUpdateResult.newStreak
+                    userUpdates["streak"] = streakUpdateResult.newStreak  // Keep legacy
+                    // FIXED: Use "lastStreakDate" as Timestamp
+                    userUpdates["lastStreakDate"] = streakUpdateResult.todayTimestamp
                 }
 
-                // set(merge) works when the user doc was just created or already exists (update() fails if missing).
+                userUpdates["updatedAt"] = FieldValue.serverTimestamp()
+
                 transaction.set(userRef, userUpdates, SetOptions.merge())
                 transaction.set(
                     ledgerRef,
@@ -107,12 +120,17 @@ class FirestoreGamificationRepository(
 
                 LedgerOutcome.Success(
                     xpAwarded = action.xpAmount,
-                    newXp = currentXp + action.xpAmount,
-                    newStreak = streakUpdate?.newStreak ?: currentStreak,
-                    streakIncremented = streakUpdate?.streakIncremented ?: false,
-                    todayStudyKey = streakUpdate?.todayStudyKey ?: lastStudyDate.orEmpty(),
+                    newXp = (currentXP + action.xpAmount).toInt(),
+                    newStreak = streakUpdateResult?.newStreak ?: currentStreak,
+                    streakIncremented = streakUpdateResult?.streakIncremented ?: false,
+                    todayTimestamp = streakUpdateResult?.todayTimestamp ?: todayTimestamp,
                 )
             }.await()
+
+            // FIXED: Also write to xp_logs collection for Web Admin compatibility
+            if (outcome is LedgerOutcome.Success && outcome.xpAwarded > 0) {
+                writeToXpLogs(uid, outcome.xpAwarded.toLong(), action.name, idempotencyKey)
+            }
 
             when (outcome) {
                 LedgerOutcome.AlreadyProcessed -> {
@@ -120,7 +138,6 @@ class FirestoreGamificationRepository(
                     GamificationRewardResult.AlreadyProcessed()
                 }
                 is LedgerOutcome.Success -> {
-                    // Transaction commit is the source of truth; immediate re-read can lag (eventual consistency).
                     Log.i(
                         TAG,
                         "reward_success uid=$uid key=$idempotencyKey xp+${outcome.xpAwarded} newXp=${outcome.newXp}",
@@ -128,15 +145,83 @@ class FirestoreGamificationRepository(
                     GamificationRewardResult.Success(
                         xpAwarded = outcome.xpAwarded,
                         newXp = outcome.newXp,
-                        newStreak = outcome.newStreak,
+                        newStreak = outcome.newStreak.toInt(),
                         streakIncremented = outcome.streakIncremented,
-                        todayStudyKey = outcome.todayStudyKey,
+                        todayStudyKey = "",  // Deprecated, use todayTimestamp
                     )
                 }
             }
         } catch (e: Exception) {
             logRewardFailure(uid, idempotencyKey, action, "transaction", e)
             GamificationRewardResult.Failed(failureReason(e))
+        }
+    }
+
+    /**
+     * FIXED: Compute streak using Timestamp instead of String.
+     */
+    private fun computeStreakWithTimestamp(
+        currentStreak: Long,
+        lastStreakDate: Timestamp?,
+        today: Timestamp
+    ): StreakUpdateResult? {
+        val todayDate = today.toDate()
+        val lastDate = lastStreakDate?.toDate()
+
+        return when {
+            lastDate == null -> StreakUpdateResult(
+                newStreak = 1L,  // FIXED: Use 1L instead of 1
+                streakIncremented = true,
+                todayTimestamp = today
+            )
+            isSameDay(lastDate, todayDate) -> StreakUpdateResult(
+                newStreak = currentStreak,
+                streakIncremented = false,
+                todayTimestamp = today
+            )
+            isYesterday(lastDate, todayDate) -> StreakUpdateResult(
+                newStreak = currentStreak + 1L,  // FIXED: Use 1L
+                streakIncremented = true,
+                todayTimestamp = today
+            )
+            else -> StreakUpdateResult(
+                newStreak = 1L,  // FIXED: Use 1L instead of 1
+                streakIncremented = true,
+                todayTimestamp = today
+            )
+        }
+    }
+
+    private fun isSameDay(date1: Date, date2: Date): Boolean {
+        val cal1 = java.util.Calendar.getInstance().apply { time = date1 }
+        val cal2 = java.util.Calendar.getInstance().apply { time = date2 }
+        return cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
+                cal1.get(java.util.Calendar.DAY_OF_YEAR) == cal2.get(java.util.Calendar.DAY_OF_YEAR)
+    }
+
+    private fun isYesterday(date1: Date, date2: Date): Boolean {
+        val cal1 = java.util.Calendar.getInstance().apply { time = date1 }
+        val cal2 = java.util.Calendar.getInstance().apply { time = date2 }
+        cal2.add(java.util.Calendar.DAY_OF_YEAR, -1)
+        return cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
+                cal1.get(java.util.Calendar.DAY_OF_YEAR) == cal2.get(java.util.Calendar.DAY_OF_YEAR)
+    }
+
+    /**
+     * FIXED: Write to xp_logs collection for Web Admin to read.
+     */
+    private suspend fun writeToXpLogs(uid: String, amount: Long, reason: String, activityType: String) {
+        try {
+            val xpLog = mapOf(
+                "userId" to uid,
+                "amount" to amount,
+                "reason" to reason,
+                "activityType" to activityType,
+                "timestamp" to FieldValue.serverTimestamp()
+            )
+            firestore.collection("xp_logs").add(xpLog).await()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write xp_log: ${e.message}")
         }
     }
 
@@ -181,11 +266,17 @@ class FirestoreGamificationRepository(
         data class Success(
             val xpAwarded: Int,
             val newXp: Int,
-            val newStreak: Int,
+            val newStreak: Long,
             val streakIncremented: Boolean,
-            val todayStudyKey: String,
+            val todayTimestamp: Timestamp,
         ) : LedgerOutcome()
     }
+
+    private data class StreakUpdateResult(
+        val newStreak: Long,
+        val streakIncremented: Boolean,
+        val todayTimestamp: Timestamp
+    )
 
     companion object {
         private const val TAG = "FirestoreGamification"

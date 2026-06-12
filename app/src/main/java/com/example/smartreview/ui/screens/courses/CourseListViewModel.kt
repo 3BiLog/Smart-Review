@@ -1,13 +1,16 @@
 package com.example.smartreview.ui.screens.courses
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.smartreview.data.model.Course
 import com.example.smartreview.data.repository.CourseRepository
 import com.example.smartreview.data.repository.CourseRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class CourseListUiState(
     val allCourses:      List<Course> = emptyList(),
@@ -25,8 +28,10 @@ class CourseListViewModel(
     val uiState: StateFlow<CourseListUiState> = _uiState.asStateFlow()
 
     init {
-        val courses = courseRepository.getCourses()
-        _uiState.update { it.copy(allCourses = courses, filteredCourses = courses) }
+        viewModelScope.launch {
+            val courses = courseRepository.getAllCourses().first()
+            _uiState.update { it.copy(allCourses = courses, filteredCourses = courses) }
+        }
     }
 
     fun onFilterSelected(filter: String) {

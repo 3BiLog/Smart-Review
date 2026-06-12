@@ -1,11 +1,16 @@
 package com.example.smartreview.data.repository
 
-import com.example.smartreview.data.repository.mock.MockCourseRepository
+import com.example.smartreview.data.repository.firestore.FirestoreCourseRepository
+// TEMPORARILY COMMENTED - Fix later when mock files are restored
+// import com.example.smartreview.data.repository.mock.MockCourseRepository
 
 /**
  * Lightweight access point until DI (e.g. Hilt) is added.
- * Swap [default] in tests or when wiring a real data source.
+ * [default] reads DA3-master production `courses` via [CourseFirestoreMapper].
  */
 object CourseRepositoryProvider {
-    val default: CourseRepository = MockCourseRepository()
+    val default: CourseRepository = FirestoreCourseRepository()
+
+    // When mock is restored, use:
+    // val default: CourseRepository = MockCourseRepository()
 }

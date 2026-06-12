@@ -8,7 +8,8 @@ import com.example.smartreview.data.remote.firestore.CommunityFirestoreMapper
 import com.example.smartreview.data.remote.firestore.CommunityFirestorePaths
 import com.example.smartreview.data.repository.CommunityRealtimeRepository
 import com.example.smartreview.data.repository.CommunityRepository
-import com.example.smartreview.data.repository.mock.MockCommunityRepository
+// TEMPORARILY COMMENTED - Fix later when mock files are restored
+// import com.example.smartreview.data.repository.mock.MockCommunityRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -24,11 +25,15 @@ import kotlinx.coroutines.withContext
 /**
  * Firestore-backed Community repository.
  * Mock fallback applies only when authenticated (offline/permission errors), never for guests.
+ *
+ * FIXED: Removed references to non-existent "suggested_rooms" collection.
+ * Use chat_rooms with type="general" instead.
  */
 class FirestoreCommunityRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance(),
-    private val fallback: CommunityRepository = MockCommunityRepository(),
+    // TEMPORARILY CHANGED: Use empty fallback instead of Mock
+    private val fallback: CommunityRepository = EmptyCommunityFallback(),
 ) : CommunityRepository, CommunityRealtimeRepository {
 
     override fun getRooms(): List<ChatRoom> = runBlocking(Dispatchers.IO) {
@@ -36,9 +41,11 @@ class FirestoreCommunityRepository(
         fetchRoomsOrNull() ?: fallback.getRooms()
     }
 
+    // FIXED: suggested_rooms doesn't exist in production - return empty list or fallback
     override fun getSuggestedRooms(): List<ChatRoom> = runBlocking(Dispatchers.IO) {
         if (!isAuthenticated()) return@runBlocking emptyList()
-        fetchSuggestedRoomsOrNull() ?: fallback.getSuggestedRooms()
+        // suggested_rooms doesn't exist in Web Admin schema, return empty list
+        emptyList()
     }
 
     override fun getRoomName(roomId: String): String = runBlocking(Dispatchers.IO) {
@@ -54,8 +61,11 @@ class FirestoreCommunityRepository(
     override fun observeRooms(): Flow<List<ChatRoom>> =
         collectionSnapshotFlow(CommunityFirestorePaths.ROOMS) { fallback.getRooms() }
 
-    override fun observeSuggestedRooms(): Flow<List<ChatRoom>> =
-        collectionSnapshotFlow(CommunityFirestorePaths.SUGGESTED_ROOMS) { fallback.getSuggestedRooms() }
+    // FIXED: suggested_rooms doesn't exist - return empty flow
+    override fun observeSuggestedRooms(): Flow<List<ChatRoom>> = callbackFlow {
+        trySend(emptyList())
+        awaitClose { }
+    }
 
     override fun observeMessages(roomId: String): Flow<List<ChatMessage>> = callbackFlow {
         if (!isAuthenticated()) {
@@ -78,10 +88,15 @@ class FirestoreCommunityRepository(
         withContext(Dispatchers.IO) {
             if (!isAuthenticated()) return@withContext null
             try {
-                val ref = messagesCollection(roomId)
-                    .add(CommunityFirestoreMapper.messageToFirestoreMap(message))
-                    .await()
-                ref.id
+                val messageRef = messagesCollection(roomId).document()
+                val roomRef = firestore
+                    .collection(CommunityFirestorePaths.ROOMS)
+                    .document(roomId)
+                val batch = firestore.batch()
+                batch.set(messageRef, CommunityFirestoreMapper.messageToFirestoreMap(message))
+                batch.update(roomRef, CommunityFirestoreMapper.roomUpdateAfterMessageMap(message))
+                batch.commit().await()
+                messageRef.id
             } catch (_: Exception) {
                 null
             }
@@ -112,9 +127,6 @@ class FirestoreCommunityRepository(
     private suspend fun fetchRoomsOrNull(): List<ChatRoom>? =
         fetchCollection(CommunityFirestorePaths.ROOMS)
 
-    private suspend fun fetchSuggestedRoomsOrNull(): List<ChatRoom>? =
-        fetchCollection(CommunityFirestorePaths.SUGGESTED_ROOMS)
-
     private suspend fun fetchCollection(collection: String): List<ChatRoom>? {
         if (!isAuthenticated()) return emptyList()
         return try {
@@ -142,7 +154,8 @@ class FirestoreCommunityRepository(
         if (!isAuthenticated()) return emptyList()
         val collection = messagesCollection(roomId)
         val snapshot = try {
-            collection.orderBy("createdAt", Query.Direction.ASCENDING).get().await()
+            // FIXED: Use "timestamp" field for ordering (matches Web Admin schema)
+            collection.orderBy("timestamp", Query.Direction.ASCENDING).get().await()
         } catch (_: Exception) {
             try {
                 collection.get().await()
@@ -193,4 +206,14 @@ class FirestoreCommunityRepository(
         }
         awaitClose { registration.remove() }
     }.flowOn(Dispatchers.IO)
+}
+
+/**
+ * Empty fallback implementation for when no network or not authenticated.
+ */
+private class EmptyCommunityFallback : CommunityRepository {
+    override fun getRooms(): List<ChatRoom> = emptyList()
+    override fun getSuggestedRooms(): List<ChatRoom> = emptyList()
+    override fun getRoomName(roomId: String): String = ""
+    override fun getMessages(roomId: String): List<ChatMessage> = emptyList()
 }

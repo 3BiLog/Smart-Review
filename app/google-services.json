@@ -1,26 +1,36 @@
 {
   "project_info": {
-    "project_number": "34830885359",
-    "project_id": "smartreview-f7d5c",
-    "storage_bucket": "smartreview-f7d5c.firebasestorage.app"
+    "project_number": "309603774897",
+    "project_id": "dacs3-9163c",
+    "storage_bucket": "dacs3-9163c.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:34830885359:android:d4998288a173d1dce4d61a",
+        "mobilesdk_app_id": "1:309603774897:android:29257a6ed093cf76e28d90",
         "android_client_info": {
           "package_name": "com.example.smartreview"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "309603774897-afo5b6locuvsdcso171qjr2dmqe803uu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyB9cYCyW3a9qFY4Zs0AoQ7P1E_AmGURowk"
+          "current_key": "AIzaSyCtA50FxiuClfyctyk_U0MRA_VJfHzqTkw"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "309603774897-afo5b6locuvsdcso171qjr2dmqe803uu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

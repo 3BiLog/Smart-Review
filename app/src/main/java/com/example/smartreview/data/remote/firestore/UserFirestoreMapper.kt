@@ -3,51 +3,78 @@ package com.example.smartreview.data.remote.firestore
 import com.example.smartreview.data.model.UserProfile
 import com.google.firebase.Timestamp
 
+/**
+ * Maps users/{uid} documents from the production Firestore schema to the app
+ * domain model without exposing Firestore DTOs to UI.
+ */
 object UserFirestoreMapper {
 
     fun toUserProfile(documentId: String, data: Map<String, Any>?): UserProfile? {
         if (data == null) return null
+
         val dto = mapToUserDocument(data)
-        val uid = dto.uid?.takeIf { it.isNotBlank() } ?: documentId
+        val uid = documentId
         val email = dto.email.orEmpty()
-        val displayName = dto.displayName?.takeIf { it.isNotBlank() }
-            ?: defaultDisplayName(email, uid)
+        val displayName = dto.name?.takeIf { it.isNotBlank() } ?: defaultDisplayName(email, uid)
+
         return UserProfile(
             uid = uid,
             displayName = displayName,
             email = email,
-            avatarUrl = dto.avatarUrl?.takeIf { it.isNotBlank() }
-                ?: defaultAvatarUrl(uid),
-            phone = dto.phone.orEmpty(),
-            streak = dto.streak?.toInt() ?: 0,
-            xp = dto.xp?.toInt() ?: 0,
-            lastStudyDate = dto.lastStudyDate.orEmpty(),
-            joinedAt = dto.joinedAt ?: 0L,
+            avatarUrl = defaultAvatarUrl(uid),
+            phone = "",
+            streak = dto.currentStreak ?: 0,
+            xp = resolveTotalXp(dto),
+            lastStreakDate = dto.lastStreakDate,
+            joinedAt = dto.createdAt,
+            longestStreak = dto.longestStreak ?: 0,
+            role = dto.role ?: "user",
+            status = dto.status ?: "active",
+            warningCount = dto.warningCount ?: 0,
+            lastLogin = dto.lastLogin,
+            updatedAt = dto.updatedAt,
+            bannedAt = dto.bannedAt,
+            bannedUntil = dto.bannedUntil,
+            bannedReason = dto.bannedReason,
         )
     }
 
-    /** Partial update map for the signed-in user's own document (users/{uid}). */
+    /**
+     * Update map for the signed-in user's own document.
+     * [phone] is kept for UI contract compatibility; production schema has no phone field.
+     */
     fun profileUpdateMap(displayName: String, phone: String): Map<String, Any> = mapOf(
-        "displayName" to displayName.trim(),
-        "phone" to phone.trim(),
+        UserFirestorePaths.Fields.NAME to displayName.trim(),
+        UserFirestorePaths.Fields.UPDATED_AT to Timestamp.now(),
     )
 
+    /**
+     * Create a new user document in Firestore matching production schema.
+     */
     fun newUserFirestoreMap(
         uid: String,
         email: String,
         displayName: String? = null,
-        joinedAt: Long = System.currentTimeMillis(),
-    ): Map<String, Any?> = mapOf(
-        "uid" to uid,
-        "displayName" to (displayName?.takeIf { it.isNotBlank() } ?: defaultDisplayName(email, uid)),
-        "email" to email.trim(),
-        "avatarUrl" to defaultAvatarUrl(uid),
-        "phone" to "",
-        "streak" to 0,
-        "xp" to 0,
-        "lastStudyDate" to "",
-        "joinedAt" to joinedAt,
-    )
+    ): Map<String, Any> {
+        val now = Timestamp.now()
+        return mapOf(
+            UserFirestorePaths.Fields.NAME to (
+                displayName?.takeIf { it.isNotBlank() } ?: defaultDisplayName(email, uid)
+                ),
+            UserFirestorePaths.Fields.EMAIL to email.trim(),
+            UserFirestorePaths.Fields.ROLE to "user",
+            UserFirestorePaths.Fields.STATUS to "active",
+            UserFirestorePaths.Fields.XP to 0L,
+            UserFirestorePaths.Fields.TOTAL_XP to 0L,
+            UserFirestorePaths.Fields.CURRENT_STREAK to 0L,
+            UserFirestorePaths.Fields.LONGEST_STREAK to 0L,
+            UserFirestorePaths.Fields.LAST_STREAK_DATE to now,
+            UserFirestorePaths.Fields.CREATED_AT to now,
+            UserFirestorePaths.Fields.UPDATED_AT to now,
+            UserFirestorePaths.Fields.LAST_LOGIN to now,
+            UserFirestorePaths.Fields.WARNING_COUNT to 0L,
+        )
+    }
 
     fun defaultDisplayName(email: String, uid: String): String {
         val localPart = email.substringBefore("@").trim()
@@ -58,17 +85,27 @@ object UserFirestoreMapper {
     fun defaultAvatarUrl(uid: String): String =
         "https://picsum.photos/seed/${uid.take(12)}/200/200"
 
+    private fun resolveTotalXp(dto: UserDocument): Long =
+        dto.totalXP ?: dto.xp ?: 0L
+
     private fun mapToUserDocument(data: Map<String, Any?>): UserDocument =
         UserDocument(
-            uid = stringField(data, "uid", "userId", "user_id"),
-            displayName = stringField(data, "displayName", "display_name", "name"),
-            email = stringField(data, "email"),
-            phone = stringField(data, "phone", "phoneNumber", "phone_number"),
-            avatarUrl = stringField(data, "avatarUrl", "avatar_url", "photoUrl", "photo_url"),
-            streak = numberField(data, "streak"),
-            xp = numberField(data, "xp", "experience", "points"),
-            lastStudyDate = stringField(data, "lastStudyDate", "last_study_date"),
-            joinedAt = timestampField(data, "joinedAt", "joined_at", "createdAt", "created_at"),
+            name = stringField(data, UserFirestorePaths.Fields.NAME),
+            email = stringField(data, UserFirestorePaths.Fields.EMAIL),
+            role = stringField(data, UserFirestorePaths.Fields.ROLE),
+            status = stringField(data, UserFirestorePaths.Fields.STATUS),
+            xp = numberField(data, UserFirestorePaths.Fields.XP),
+            totalXP = numberField(data, UserFirestorePaths.Fields.TOTAL_XP),
+            currentStreak = numberField(data, UserFirestorePaths.Fields.CURRENT_STREAK),
+            longestStreak = numberField(data, UserFirestorePaths.Fields.LONGEST_STREAK),
+            lastStreakDate = timestampField(data, UserFirestorePaths.Fields.LAST_STREAK_DATE),
+            createdAt = timestampField(data, UserFirestorePaths.Fields.CREATED_AT),
+            updatedAt = timestampField(data, UserFirestorePaths.Fields.UPDATED_AT),
+            lastLogin = timestampField(data, UserFirestorePaths.Fields.LAST_LOGIN),
+            warningCount = numberField(data, UserFirestorePaths.Fields.WARNING_COUNT),
+            bannedAt = timestampField(data, UserFirestorePaths.Fields.BANNED_AT),
+            bannedUntil = timestampField(data, UserFirestorePaths.Fields.BANNED_UNTIL),
+            bannedReason = stringField(data, UserFirestorePaths.Fields.BANNED_REASON),
         )
 
     private fun stringField(data: Map<String, Any?>, vararg keys: String): String? {
@@ -83,16 +120,16 @@ object UserFirestoreMapper {
         for (key in keys) {
             when (val value = data[key]) {
                 is Number -> return value.toLong()
+                is String -> return value.toLongOrNull()
             }
         }
         return null
     }
 
-    private fun timestampField(data: Map<String, Any?>, vararg keys: String): Long? {
+    private fun timestampField(data: Map<String, Any?>, vararg keys: String): Timestamp? {
         for (key in keys) {
             when (val value = data[key]) {
-                is Timestamp -> return value.toDate().time
-                is Number -> return value.toLong()
+                is Timestamp -> return value
             }
         }
         return null

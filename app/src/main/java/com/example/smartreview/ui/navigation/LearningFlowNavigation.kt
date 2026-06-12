@@ -6,6 +6,7 @@ import com.example.smartreview.data.model.LessonItem
 import com.example.smartreview.ui.screens.coursedetail.courseDetailRoute
 import com.example.smartreview.ui.screens.lesson.lessonContentRoute
 import com.example.smartreview.ui.screens.lessonplayer.lessonPlayerRoute
+import com.example.smartreview.ui.navigation.Screen
 
 /**
  * Canonical routing for the separated learning flow:
@@ -39,7 +40,16 @@ object LearningFlowNavigation {
     fun resolveFirstUnlockedLesson(course: Course): LessonItem? =
         course.modules.flatMap { it.lessons }.firstOrNull { !it.isLocked }
 
-    fun NavHostController.navigateLessonVideo(lessonId: String) {
+    /**
+     * Navigate to lesson video. If courseId is known, build canonical route with courseId.
+     */
+    fun NavHostController.navigateLessonVideo(lessonId: String, courseId: String? = null) {
+        if (!courseId.isNullOrBlank()) {
+            navigate(RouteHelpers.lessonPlayerRoute(courseId, lessonId)) {
+                launchSingleTop = true
+            }
+            return
+        }
         navigate(lessonVideoRoute(lessonId)) {
             launchSingleTop = true
         }
@@ -54,21 +64,32 @@ object LearningFlowNavigation {
         }
     }
 
-    /** Hero: first unlocked lesson video in the course. */
+    /** Hero: first unlocked lesson in the course — route by lesson type. */
     fun NavHostController.navigateHeroPlay(course: Course) {
         val lesson = resolveFirstUnlockedLesson(course) ?: return
-        navigateLessonVideo(lesson.id)
+        // include course context for canonical resolution
+        when (lesson.lessonType) {
+            com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> navigateLessonVideo(lesson.id, courseId = course.id)
+            com.example.smartreview.data.model.LessonType.READING -> navigateLessonContent(lesson.id)
+            com.example.smartreview.data.model.LessonType.QUIZ -> navigate(com.example.smartreview.ui.screens.quiz.quizRoute(lesson.quizId ?: lesson.id)) { launchSingleTop = true }
+            com.example.smartreview.data.model.LessonType.FLASHCARD -> navigate(Screen.Flashcard.route) { launchSingleTop = true }
+        }
     }
-
+ 
     /**
-     * Start / Continue: next incomplete unlocked lesson (or preferred), always via video.
+     * Start / Continue: next incomplete unlocked lesson (or preferred), route by lesson type.
      */
     fun NavHostController.navigateStartLearning(
         course: Course,
         preferredLessonId: String? = null,
     ) {
         val lesson = resolveNextUnlockedLesson(course, preferredLessonId) ?: return
-        navigateLessonVideo(lesson.id)
+        when (lesson.lessonType) {
+            com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> navigateLessonVideo(lesson.id, courseId = course.id)
+            com.example.smartreview.data.model.LessonType.READING -> navigateLessonContent(lesson.id)
+            com.example.smartreview.data.model.LessonType.QUIZ -> navigate(com.example.smartreview.ui.screens.quiz.quizRoute(lesson.quizId ?: lesson.id)) { launchSingleTop = true }
+            com.example.smartreview.data.model.LessonType.FLASHCARD -> navigate(Screen.Flashcard.route) { launchSingleTop = true }
+        }
     }
 
     fun NavHostController.navigateToCourseFromStudy(courseId: String) {

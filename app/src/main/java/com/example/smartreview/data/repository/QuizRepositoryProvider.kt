@@ -1,7 +1,7 @@
 package com.example.smartreview.data.repository
 
-import com.example.smartreview.data.repository.mock.MockQuizRepository
+import com.example.smartreview.data.repository.firestore.FirestoreQuizRepository
 
 object QuizRepositoryProvider {
-    val default: QuizRepository = MockQuizRepository()
+    val default: QuizRepository = FirestoreQuizRepository()
 }
