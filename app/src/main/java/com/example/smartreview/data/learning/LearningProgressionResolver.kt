@@ -110,7 +110,7 @@ class LearningProgressionResolver(
         progress: UserLearningProgress,
     ): LearningProgressionItem? {
         if (!ResumeLearningSupport.isQuizSnapshotResumable(snapshot, progress)) return null
-        val quiz = QuizRepositoryProvider.default.getQuiz(snapshot.quizId) ?: return null
+        val quiz = runBlocking { QuizRepositoryProvider.default.getQuiz(snapshot.quizId) } ?: return null
         val lessonPlacement = quiz.lessonId
             ?.takeIf { it.isNotBlank() }
             ?.let { findLessonPlacement(it) }

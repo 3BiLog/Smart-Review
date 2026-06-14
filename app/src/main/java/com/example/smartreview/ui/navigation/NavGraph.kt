@@ -149,15 +149,15 @@ fun SmartReviewNavGraph(navController: NavHostController) {
                  sessionId = backStackEntry.arguments?.getString("sessionId").orEmpty(),
              )
          }
-         composable(
-             route = QUIZ_ROUTE,
-             arguments = listOf(navArgument("quizId") { type = NavType.StringType }),
-         ) { backStackEntry ->
-             QuizScreen(
-                 navController = navController,
-                 quizId = backStackEntry.arguments?.getString("quizId").orEmpty(),
-             )
-         }
+        composable(
+            route = QUIZ_ROUTE,  // QUIZ_ROUTE phải là "quiz/{quizId}"
+            arguments = listOf(navArgument("quizId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            QuizScreen(
+                navController = navController,
+                quizId = backStackEntry.arguments?.getString("quizId").orEmpty(),
+            )
+        }
          composable(
              route = QUIZ_SUMMARY_ROUTE,
              arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),

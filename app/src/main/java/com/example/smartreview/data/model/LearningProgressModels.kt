@@ -27,6 +27,13 @@ data class LessonProgressSnapshot(
     val viewedBlockIds: Set<String>,
 )
 
+// Thêm vào LearningProgressModels.kt
+data class QuizAnswerRecord(
+    val questionId: String,
+    val selectedOptionId: String,  // String, not Int - for compatibility
+    val isCorrect: Boolean,
+)
+
 data class QuizProgressSnapshot(
     val quizId: String,
     val sessionId: String,

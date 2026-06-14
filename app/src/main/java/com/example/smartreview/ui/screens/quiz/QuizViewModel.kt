@@ -1,90 +1,203 @@
-package com.example.smartreview.data.model
+package com.example.smartreview.ui.screens.quiz
 
-import com.google.firebase.Timestamp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.example.smartreview.data.model.Quiz
+import com.example.smartreview.data.model.QuizAnswerRecord
+import com.example.smartreview.data.model.QuizCompletionResult
+import com.example.smartreview.data.model.QuizProgressSnapshot
+import com.example.smartreview.data.model.QuizQuestion
+import com.example.smartreview.data.quiz.QuizScorer
+import com.example.smartreview.data.quiz.QuizSessionStore
+import com.example.smartreview.data.repository.QuizRepository
+import com.example.smartreview.data.repository.QuizRepositoryProvider
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.util.UUID
 
-/**
- * Quiz domain models - Updated to match Firestore schema from Web Admin
- *
- * Firestore structure:
- * courses/{courseId}/modules/{moduleId}/lessons/{lessonId}
- *   type: "quiz"
- *   content.data {
- *     passingScore: 70,
- *     questions: [{
- *       id, text, options (List<String>), correctOptionIndex, explanation
- *     }]
- *   }
- */
-
-// Updated to match Firestore (options are List<String>, not List<QuizOption>)
-data class QuizQuestion(
-    val id: String,
-    val text: String,           // "prompt" in old code
-    val options: List<String>,  // Changed from List<QuizOption>
-    val correctOptionIndex: Int, // Changed from correctOptionId
-    val explanation: String = "",
+data class QuizUiState(
+    val quiz: Quiz? = null,
+    val currentIndex: Int = 0,
+    val showFeedback: Boolean = false,
+    val lastFeedbackCorrect: Boolean = false,
+    val selectedOptionId: String? = null,
+    val lastExplanation: String = "",
+    val answers: List<QuizAnswerRecord> = emptyList(),
+    val isQuizFinished: Boolean = false,
+    val isLoading: Boolean = true,
+    val isResuming: Boolean = false,
+    val alreadyCompleted: Boolean = false,
 )
 
-// Keep for backward compatibility but deprecate
-@Deprecated("Use QuizQuestion with options List<String> instead")
-data class QuizOption(
-    val id: String,
-    val label: String,
-)
+class QuizViewModel(
+    private val quizId: String,
+    private val quizRepository: QuizRepository = QuizRepositoryProvider.default,
+) : ViewModel() {
 
-data class Quiz(
-    val id: String,
-    val title: String,
-    val description: String = "",  // was "subtitle"
-    val lessonId: String? = null,
-    val courseId: String? = null,
-    val moduleId: String? = null,
-    val questions: List<QuizQuestion>,
-    val passingScore: Int = 70,    // Changed from Float to Int
-    val xpReward: Long = 50,
-    val duration: Long = 0,
-)
+    private var sessionId: String = UUID.randomUUID().toString()
+    private var sessionStartedAt: Long = System.currentTimeMillis()
+    private val answerRecords = mutableListOf<QuizAnswerRecord>()
 
-data class QuizAnswerRecord(
-    val questionId: String,
-    val selectedOptionIndex: Int,   // Changed from selectedOptionId
-    val isCorrect: Boolean,
-)
+    private val _uiState = MutableStateFlow(QuizUiState())
+    val uiState: StateFlow<QuizUiState> = _uiState.asStateFlow()
 
-data class QuizCompletionResult(
-    val sessionId: String,
-    val quizId: String,
-    val quizTitle: String,
-    val totalQuestions: Int,
-    val correctCount: Int,
-    val scorePercent: Int,           // Changed from Float to Int
-    val passed: Boolean,
-    val durationMs: Long,
-    val completedAt: Long = System.currentTimeMillis(),
-    val xpEarned: Long = 0,
-) {
-    fun formattedStudyTime(): String {
-        val totalSeconds = (durationMs / 1000).coerceAtLeast(0)
-        return "%02d:%02d".format(totalSeconds / 60, totalSeconds % 60)
+    init {
+        viewModelScope.launch { loadQuiz() }
     }
-}
 
-// For progress persistence
-data class QuizProgressSnapshot(
-    val quizId: String,
-    val sessionId: String,
-    val sessionStartedAt: Long,
-    val currentIndex: Int,
-    val answers: List<QuizAnswerRecord>,
-    val selectedOptionIndex: Int?,   // Changed from selectedOptionId
-    val showFeedback: Boolean,
-)
+    val totalQuestions: Int get() = _uiState.value.quiz?.questions?.size ?: 0
 
-// Extension function to convert from Firestore question format
-fun QuizQuestion.toLegacyFormat(): Pair<String, List<QuizOption>> {
-    val optionsList = options.mapIndexed { index, label ->
-        QuizOption(id = "${this.id}_opt_$index", label = label)
+    val currentQuestion: QuizQuestion?
+        get() = _uiState.value.quiz?.questions?.getOrNull(_uiState.value.currentIndex)
+
+    fun selectOption(optionId: String) {
+        if (_uiState.value.showFeedback || _uiState.value.isQuizFinished) return
+        _uiState.update { it.copy(selectedOptionId = optionId) }
+        persistProgress()
     }
-    val correctOptionId = optionsList.getOrNull(correctOptionIndex)?.id ?: ""
-    return correctOptionId to optionsList
+
+    fun submitAnswer() {
+        val state = _uiState.value
+        val question = currentQuestion ?: return
+        val selectedOptionId = state.selectedOptionId ?: return
+        if (state.showFeedback) return
+
+        // FIXED: Convert String to Int for comparison
+        val selectedIndex = selectedOptionId.toIntOrNull()
+        val isCorrect = selectedIndex != null && selectedIndex == question.correctOptionIndex
+
+        val record = QuizAnswerRecord(
+            questionId = question.id,
+            selectedOptionId = selectedOptionId,
+            isCorrect = isCorrect
+        )
+        answerRecords.add(record)
+        val quiz = state.quiz ?: return
+        val isLastQuestion = state.currentIndex >= quiz.questions.size - 1
+
+        _uiState.update {
+            it.copy(
+                showFeedback = true,
+                lastFeedbackCorrect = isCorrect,
+                lastExplanation = question.explanation,
+                answers = answerRecords.toList(),
+                isQuizFinished = isLastQuestion,
+                selectedOptionId = if (isLastQuestion) null else it.selectedOptionId,
+            )
+        }
+        if (isLastQuestion) {
+            // Clear progress if needed
+        }
+        persistProgress()
+    }
+
+    fun nextQuestion() {
+        val state = _uiState.value
+        if (!state.showFeedback) return
+
+        val quiz = state.quiz ?: return
+        val nextIndex = state.currentIndex + 1
+        if (nextIndex >= quiz.questions.size) {
+            _uiState.update {
+                it.copy(
+                    isQuizFinished = true,
+                    showFeedback = false,
+                    selectedOptionId = null,
+                )
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    currentIndex = nextIndex,
+                    showFeedback = false,
+                    selectedOptionId = null,
+                    lastExplanation = "",
+                )
+            }
+        }
+        persistProgress()
+    }
+
+    fun previousQuestion() {
+        if (_uiState.value.showFeedback || _uiState.value.isQuizFinished) return
+        val prev = (_uiState.value.currentIndex - 1).coerceAtLeast(0)
+        _uiState.update {
+            it.copy(
+                currentIndex = prev,
+                selectedOptionId = null,
+                showFeedback = false
+            )
+        }
+        persistProgress()
+    }
+
+    fun completeQuiz(): QuizCompletionResult? {
+        val quiz = _uiState.value.quiz ?: return null
+        if (!_uiState.value.isQuizFinished) return null
+
+        val correctCount = answerRecords.count { it.isCorrect }
+        val total = quiz.questions.size
+        val scorePercent = if (total > 0) (correctCount * 100 / total) else 0
+        val passed = scorePercent >= quiz.passingScore
+
+        val result = QuizCompletionResult(
+            sessionId = sessionId,
+            quizId = quiz.id,
+            quizTitle = quiz.title,
+            totalQuestions = total,
+            correctCount = correctCount,
+            scorePercent = scorePercent,
+            passed = passed,
+            durationMs = System.currentTimeMillis() - sessionStartedAt,
+            xpEarned = if (passed) quiz.xpReward else 0
+        )
+        QuizSessionStore.put(result)
+        return result
+    }
+
+    private suspend fun loadQuiz() {
+        _uiState.update { it.copy(isLoading = true) }
+        android.util.Log.d("QuizViewModel", "Loading quiz with ID: $quizId")
+        val quiz = quizRepository.getQuiz(quizId)
+        android.util.Log.d("QuizViewModel", "Quiz loaded: ${quiz != null}, questions=${quiz?.questions?.size}")
+        if (quiz == null) {
+            _uiState.update { it.copy(isLoading = false) }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                quiz = quiz,
+                isLoading = false,
+                alreadyCompleted = false,
+                isResuming = false,
+            )
+        }
+        persistProgress()
+    }
+
+    private fun persistProgress() {
+        val state = _uiState.value
+        val quiz = state.quiz ?: return
+        if (state.isQuizFinished) return
+        // Save to local storage if needed
+    }
+
+    companion object {
+        fun provideFactory(quizId: String): ViewModelProvider.Factory =
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    QuizViewModel(quizId) as T
+            }
+    }
+
+    init {
+        android.util.Log.d("QuizViewModel", ">>> Initializing with quizId=$quizId")
+        viewModelScope.launch { loadQuiz() }
+    }
 }

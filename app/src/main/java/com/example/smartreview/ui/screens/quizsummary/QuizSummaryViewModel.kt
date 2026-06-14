@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 data class QuizSummaryUiState(
     val courseId: String = "",
@@ -49,7 +50,7 @@ class QuizSummaryViewModel(
                     quizTitle = session.quizTitle,
                     correctCount = session.correctCount,
                     totalQuestions = session.totalQuestions,
-                    scorePercent = session.scorePercent,
+                    scorePercent = session.scorePercent.toFloat(),
                     passed = session.passed,
                     studyTime = session.formattedStudyTime(),
                     hasSessionData = true,
@@ -97,7 +98,7 @@ class QuizSummaryViewModel(
     }
 
     private fun resolveCourseId(quizId: String): String {
-        val quiz = QuizRepositoryProvider.default.getQuiz(quizId) ?: return ""
+        val quiz = runBlocking { QuizRepositoryProvider.default.getQuiz(quizId) } ?: return ""
         val lessonId = quiz.lessonId ?: return ""
         return LessonRepositoryProvider.default.getLesson(lessonId)?.courseId.orEmpty()
     }

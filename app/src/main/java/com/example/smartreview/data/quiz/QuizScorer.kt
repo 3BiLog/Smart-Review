@@ -4,13 +4,11 @@ import com.example.smartreview.data.model.Quiz
 import com.example.smartreview.data.model.QuizAnswerRecord
 import com.example.smartreview.data.model.QuizQuestion
 
-/**
- * Pure scoring for quiz answers.
- */
 object QuizScorer {
 
     fun evaluateAnswer(question: QuizQuestion, selectedOptionId: String): QuizAnswerRecord {
-        val isCorrect = selectedOptionId == question.correctOptionId
+        val selectedIndex = selectedOptionId.toIntOrNull()
+        val isCorrect = selectedIndex != null && selectedIndex == question.correctOptionIndex
         return QuizAnswerRecord(
             questionId = question.id,
             selectedOptionId = selectedOptionId,
@@ -22,11 +20,12 @@ object QuizScorer {
         val total = quiz.questions.size.coerceAtLeast(1)
         val correct = answers.count { it.isCorrect }
         val percent = correct.toFloat() / total
+        val passingScoreFloat = quiz.passingScore.toFloat() / 100f
         return QuizScore(
             correctCount = correct,
             totalQuestions = total,
             scorePercent = percent,
-            passed = percent >= quiz.passingScore,
+            passed = percent >= passingScoreFloat,
         )
     }
 }

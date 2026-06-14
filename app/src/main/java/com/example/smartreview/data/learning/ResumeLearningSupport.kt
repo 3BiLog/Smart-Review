@@ -8,6 +8,7 @@ import com.example.smartreview.data.model.UserLearningProgress
 import com.example.smartreview.data.repository.FlashcardRepositoryProvider
 import com.example.smartreview.data.repository.LessonRepositoryProvider
 import com.example.smartreview.data.repository.QuizRepositoryProvider
+import kotlinx.coroutines.runBlocking
 
 /**
  * Validates in-progress snapshots and drops stale entries (completed / invalid).
@@ -86,7 +87,7 @@ object ResumeLearningSupport {
     ): Boolean {
         if (snapshot.quizId.isBlank()) return false
         if (snapshot.quizId in progress.completedQuizIds) return false
-        val quiz = QuizRepositoryProvider.default.getQuiz(snapshot.quizId) ?: return false
+        val quiz = runBlocking { QuizRepositoryProvider.default.getQuiz(snapshot.quizId) } ?: return false
         val lessonId = quiz.lessonId?.takeIf { it.isNotBlank() }
         if (lessonId != null) {
             if (lessonId in progress.completedLessonIds) return false

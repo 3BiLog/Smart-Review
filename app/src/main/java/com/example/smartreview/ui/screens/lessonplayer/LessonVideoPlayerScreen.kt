@@ -26,6 +26,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.smartreview.data.model.LessonItem
+import com.example.smartreview.data.model.LessonType
 import com.example.smartreview.ui.components.YoutubeLessonPlayer
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonContent
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
@@ -48,8 +49,7 @@ fun LessonVideoPlayerScreen(
 ) {
     val state  by vm.uiState.collectAsStateWithLifecycle()
     val lesson  = state.currentLesson ?: return
-    
-    // Log for debugging navigation flow
+
     android.util.Log.d("LessonVideoPlayerScreen", "Rendered: lessonId=$lessonId, courseId=$courseId, current=${lesson.id}, type=${lesson.lessonType}")
 
     Scaffold(
@@ -69,35 +69,44 @@ fun LessonVideoPlayerScreen(
 
             // ── 1. Video player ───────────────────────────────────────────
             item {
-                // Determine CTA and action: if lesson has content blocks, go to content; otherwise go to next lesson
                 val hasBlocks = state.hasContentBlocks
                 val nextLesson = state.upNextLessons.firstOrNull()
                 val ctaText = if (hasBlocks) "Tiếp tục — Tóm tắt bài học" else (if (nextLesson != null) "Bài học tiếp theo" else "Hoàn thành bài học")
+
                 VideoPlayerArea(
                     videoId = state.youtubeVideoId,
                     thumbnailUrl = lesson.thumbnailUrl,
                     videoError = state.videoError,
                     ctaText = ctaText,
                     onContinue = {
+                        android.util.Log.d("LessonVideoPlayerScreen", ">>> onContinue called, hasBlocks=$hasBlocks, nextLesson=$nextLesson")
+
                         if (hasBlocks) {
                             navController.navigateLessonContent(lesson.id)
                         } else {
                             if (nextLesson == null) {
+                                android.util.Log.d("LessonVideoPlayerScreen", ">>> No next lesson, popping back")
                                 navController.popBackStack()
                             } else {
+                                android.util.Log.d("LessonVideoPlayerScreen", ">>> Next lesson type: ${nextLesson.lessonType}, id: ${nextLesson.id}")
                                 when (nextLesson.lessonType) {
-                                    com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> {
+                                    LessonType.VIDEO, LessonType.UNKNOWN -> {
+                                        android.util.Log.d("LessonVideoPlayerScreen", ">>> Navigating to VIDEO: ${nextLesson.id}")
                                         navController.navigateLessonVideo(nextLesson.id, courseId = courseId)
                                     }
-                                    com.example.smartreview.data.model.LessonType.READING -> {
+                                    LessonType.READING -> {
+                                        android.util.Log.d("LessonVideoPlayerScreen", ">>> Navigating to READING: ${nextLesson.id}")
                                         navController.navigateLessonContent(nextLesson.id)
                                     }
-                                    com.example.smartreview.data.model.LessonType.QUIZ -> {
-                                        navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(nextLesson.quizId ?: nextLesson.id)) {
+                                    LessonType.QUIZ -> {
+                                        val quizIdToUse = nextLesson.quizId?.takeIf { it.isNotBlank() } ?: nextLesson.id
+                                        android.util.Log.d("LessonVideoPlayerScreen", ">>> Navigating to QUIZ: lessonId=${nextLesson.id}, quizId=$quizIdToUse")
+                                        navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(quizIdToUse)) {
                                             launchSingleTop = true
                                         }
                                     }
-                                    com.example.smartreview.data.model.LessonType.FLASHCARD -> {
+                                    LessonType.FLASHCARD -> {
+                                        android.util.Log.d("LessonVideoPlayerScreen", ">>> Navigating to FLASHCARD: ${nextLesson.id}")
                                         navController.navigate(Screen.Flashcard.route) { launchSingleTop = true }
                                     }
                                 }
@@ -138,26 +147,29 @@ fun LessonVideoPlayerScreen(
             }
 
             // ── 5. Playlist ───────────────────────────────────────────────
-            items(state.upNextLessons, key = { it.id }) { item ->
+            items(state.upNextLessons, key = { it.id }) { playlistItem ->
                 PlaylistItem(
-                    item     = item,
-                    isCurrent = item.isCurrentlyPlaying,
+                    item     = playlistItem,
+                    isCurrent = playlistItem.isCurrentlyPlaying,
                     onClick  = {
-                        when (item.lessonType) {
-                            com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> {
-                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "VIDEO: item=${item.id}, courseId=$courseId")
-                                navController.navigateLessonVideo(item.id, courseId = courseId)
+                        when (playlistItem.lessonType) {
+                            LessonType.VIDEO, LessonType.UNKNOWN -> {
+                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "VIDEO: item=${playlistItem.id}, courseId=$courseId")
+                                navController.navigateLessonVideo(playlistItem.id, courseId = courseId)
                             }
-                            com.example.smartreview.data.model.LessonType.READING -> {
-                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "READING: item=${item.id}")
-                                navController.navigateLessonContent(item.id)
+                            LessonType.READING -> {
+                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "READING: item=${playlistItem.id}")
+                                navController.navigateLessonContent(playlistItem.id)
                             }
-                            com.example.smartreview.data.model.LessonType.QUIZ -> {
-                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "QUIZ: item=${item.id}, quizId=${item.quizId}")
-                                navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(item.quizId ?: item.id)) { launchSingleTop = true }
+                            LessonType.QUIZ -> {
+                                val quizIdToUse = playlistItem.quizId?.takeIf { it.isNotBlank() } ?: playlistItem.id
+                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "QUIZ: item=${playlistItem.id}, quizId=$quizIdToUse")
+                                navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(quizIdToUse)) {
+                                    launchSingleTop = true
+                                }
                             }
-                            com.example.smartreview.data.model.LessonType.FLASHCARD -> {
-                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "FLASHCARD: item=${item.id}")
+                            LessonType.FLASHCARD -> {
+                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "FLASHCARD: item=${playlistItem.id}")
                                 navController.navigate(Screen.Flashcard.route) { launchSingleTop = true }
                             }
                         }
@@ -250,13 +262,11 @@ private fun LessonInfoCard(
             .border(1.dp, GlassBorder, RoundedCornerShape(20.dp)),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Module + title row
             Row(
                 verticalAlignment     = Alignment.Top,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    // Module badge
                     Surface(
                         color = SurfaceVariant,
                         shape = RoundedCornerShape(6.dp),
@@ -284,7 +294,6 @@ private fun LessonInfoCard(
                         )
                     }
                 }
-                // Save button
                 IconButton(
                     onClick  = onSave,
                     modifier = Modifier
@@ -303,7 +312,6 @@ private fun LessonInfoCard(
             HorizontalDivider(color = GlassBorder)
             Spacer(Modifier.height(12.dp))
 
-            // Stats row
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 StatItem(icon = Icons.Default.Visibility, text = "1.2k views")
                 StatItem(icon = Icons.Default.AccessTime, text = lesson.formattedDuration)
@@ -376,7 +384,6 @@ private fun PlaylistItem(
                 .padding(8.dp)
                 .then(if (item.isLocked) Modifier.alpha(0.55f) else Modifier),
         ) {
-            // Thumbnail
             Box(
                 contentAlignment = Alignment.Center,
                 modifier         = Modifier
@@ -394,7 +401,6 @@ private fun PlaylistItem(
                     )
                 }
 
-                // Left-side progress indicator for current
                 if (isCurrent) {
                     Box(
                         modifier = Modifier
@@ -405,7 +411,6 @@ private fun PlaylistItem(
                     )
                 }
 
-                // Overlay icon
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier         = Modifier
@@ -428,7 +433,6 @@ private fun PlaylistItem(
                     )
                 }
 
-                // Duration badge
                 if (!item.isLocked && item.durationSeconds > 0) {
                     Surface(
                         color    = Color.Black.copy(0.8f),
@@ -450,7 +454,6 @@ private fun PlaylistItem(
 
             Spacer(Modifier.width(10.dp))
 
-            // Info
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier            = Modifier.weight(1f),

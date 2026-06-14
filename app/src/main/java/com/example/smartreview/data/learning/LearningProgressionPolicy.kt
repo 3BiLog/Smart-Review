@@ -8,9 +8,6 @@ import com.example.smartreview.data.model.LessonItem
 import com.example.smartreview.data.repository.LessonRepository
 import com.example.smartreview.data.repository.LessonRepositoryProvider
 
-/**
- * Derives module/lesson unlock state and course progress from completed lessons/quizzes.
- */
 class LearningProgressionPolicy(
     private val lessonRepository: LessonRepository = LessonRepositoryProvider.default,
 ) {
@@ -35,18 +32,13 @@ class LearningProgressionPolicy(
         }
         val total = orderedLessonIds.size.coerceAtLeast(1)
 
+        // FIXED: Always unlock all modules and lessons
         val modules = template.modules.mapIndexed { moduleIndex, module ->
-            val moduleUnlocked = isModuleUnlocked(template, moduleIndex, snapshot)
             val lessons = module.lessons.mapIndexed { lessonIndex, lesson ->
-                val lessonUnlocked = moduleUnlocked && isLessonUnlocked(
-                    module = module,
-                    lessonIndex = lessonIndex,
-                    snapshot = snapshot,
-                )
-                LessonVideoEnrichment.enrich(lesson).copy(isLocked = !lessonUnlocked)
+                LessonVideoEnrichment.enrich(lesson).copy(isLocked = false)  // Always unlocked
             }
             module.copy(
-                isLocked = !moduleUnlocked,
+                isLocked = false,  // Always unlocked
                 lessons = lessons,
             )
         }
@@ -82,34 +74,26 @@ class LearningProgressionPolicy(
             .toSet()
     }
 
+    // FIXED: Always return true - no locking
     private fun isModuleUnlocked(
         template: Course,
         moduleIndex: Int,
         snapshot: ProgressSnapshot,
-    ): Boolean {
-        if (moduleIndex == 0) return true
-        val previous = template.modules[moduleIndex - 1]
-        return previous.lessons.all { isLessonFullyComplete(it.id, snapshot) }
-    }
+    ): Boolean = true  // Always unlocked
 
     private fun isLessonUnlocked(
         module: CourseModule,
         lessonIndex: Int,
         snapshot: ProgressSnapshot,
-    ): Boolean {
-        if (lessonIndex == 0) return true
-        val previousLessonId = module.lessons[lessonIndex - 1].id
-        return isLessonFullyComplete(previousLessonId, snapshot)
-    }
+    ): Boolean = true  // Always unlocked
 
     private fun findRecommendedNext(
         modules: List<CourseModule>,
         snapshot: ProgressSnapshot,
     ): Pair<String?, String?> {
         for (module in modules) {
-            if (module.isLocked) break
             for (lesson in module.lessons) {
-                if (!lesson.isLocked && !isLessonFullyComplete(lesson.id, snapshot)) {
+                if (!isLessonFullyComplete(lesson.id, snapshot)) {
                     return lesson.id to lesson.title
                 }
             }

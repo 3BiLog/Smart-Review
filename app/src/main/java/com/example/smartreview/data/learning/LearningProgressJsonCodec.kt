@@ -81,6 +81,7 @@ object LearningProgressJsonCodec {
             viewedBlockIds = obj.optJSONArray("viewedBlockIds").toStringSet(),
         )
 
+    // FIXED: Use selectedOptionId (String) to match QuizProgressSnapshot in LearningProgressModels
     private fun encodeQuiz(snapshot: QuizProgressSnapshot): JSONObject =
         JSONObject().apply {
             put("quizId", snapshot.quizId)
@@ -102,6 +103,7 @@ object LearningProgressJsonCodec {
             put("answers", answers)
         }
 
+    // FIXED: Use selectedOptionId (String) to match QuizProgressSnapshot in LearningProgressModels
     private fun decodeQuiz(obj: JSONObject): QuizProgressSnapshot {
         val answersArray = obj.optJSONArray("answers") ?: JSONArray()
         val answers = buildList {

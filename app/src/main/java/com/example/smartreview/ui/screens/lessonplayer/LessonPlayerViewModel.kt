@@ -9,6 +9,7 @@ import com.example.smartreview.data.model.LessonProgressSnapshot
 import kotlinx.coroutines.launch
 import java.util.UUID
 import com.example.smartreview.data.model.LessonItem
+import com.example.smartreview.data.model.LessonType
 import com.example.smartreview.data.repository.CourseRepository
 import com.example.smartreview.data.repository.CourseRepositoryProvider
 import com.example.smartreview.data.repository.LessonRepository
@@ -51,7 +52,7 @@ class LessonPlayerViewModel(
     private suspend fun loadLesson(targetLessonId: String) {
         // Priority A: if courseId provided, load course and resolve lesson from modules[].lessons[]
         val courseFromArg = courseId?.let { cid -> courseRepository.getCourseById(cid) }
-        val courseLessonsFromArg = courseFromArg?.modules?.flatMap { it.lessons }.orEmpty()
+        var courseLessonsFromArg = courseFromArg?.modules?.flatMap { it.lessons }.orEmpty()
         var current: LessonItem? = courseLessonsFromArg.find { it.id == targetLessonId }
         var content: com.example.smartreview.data.model.LessonContent? = null
 
@@ -69,8 +70,12 @@ class LessonPlayerViewModel(
                         thumbnailUrl = "",
                         isLocked = false,
                         videoUrl = content.videoUrl,
-                        lessonType = com.example.smartreview.data.model.LessonType.VIDEO,
+                        lessonType = LessonType.VIDEO,
                     )
+                // Update courseLessonsFromArg if we found siblings
+                if (siblingLessons.isNotEmpty()) {
+                    courseLessonsFromArg = siblingLessons
+                }
             }
         }
 
@@ -87,8 +92,8 @@ class LessonPlayerViewModel(
                     thumbnailUrl = "",
                     isLocked = false,
                     videoUrl = fsContent.videoUrl,
-                lessonType = com.example.smartreview.data.model.LessonType.VIDEO,
-            )
+                    lessonType = LessonType.VIDEO,
+                )
             }
         }
 
@@ -103,19 +108,34 @@ class LessonPlayerViewModel(
 
         if (current == null) return
 
+        // FIXED: Ensure quizId is not null for quiz lessons
+        var fixedCurrent = current
+        if (fixedCurrent.lessonType == LessonType.QUIZ && fixedCurrent.quizId.isNullOrBlank()) {
+            fixedCurrent = fixedCurrent.copy(quizId = fixedCurrent.id)
+            android.util.Log.d("LessonPlayerViewModel", "Fixed quiz lesson: id=${fixedCurrent.id}, quizId=${fixedCurrent.quizId}")
+        }
+
         // Determine the single next lesson in progression order.
         val lessonsSequence: List<LessonItem> = when {
             courseLessonsFromArg.isNotEmpty() -> courseLessonsFromArg
             content?.courseId != null -> courseRepository.getCourseById(content.courseId!!)?.modules?.flatMap { it.lessons } ?: emptyList()
             else -> emptyList()
         }
-        val nextLesson = lessonsSequence.let { seq ->
-            val idx = seq.indexOfFirst { it.id == current.id }
+
+        var nextLesson = lessonsSequence.let { seq ->
+            val idx = seq.indexOfFirst { it.id == fixedCurrent.id }
             if (idx >= 0) seq.getOrNull(idx + 1) else null
         }
+
+        // FIXED: Ensure nextLesson quizId is not null
+        if (nextLesson?.lessonType == LessonType.QUIZ && nextLesson.quizId.isNullOrBlank()) {
+            nextLesson = nextLesson.copy(quizId = nextLesson.id)
+            android.util.Log.d("LessonPlayerViewModel", "Fixed next quiz lesson: id=${nextLesson.id}, quizId=${nextLesson.quizId}")
+        }
+
         val upNext = nextLesson?.let { listOf(it) } ?: emptyList()
 
-        val videoUrl = content?.videoUrl?.takeIf { it.isNotBlank() } ?: current.videoUrl
+        val videoUrl = content?.videoUrl?.takeIf { it.isNotBlank() } ?: fixedCurrent.videoUrl
         val videoId = YouTubeVideoUrl.extractVideoId(videoUrl)
         val videoError = when {
             videoId != null -> null
@@ -125,9 +145,9 @@ class LessonPlayerViewModel(
 
         _uiState.update {
             it.copy(
-                currentLesson = current.copy(isCurrentlyPlaying = true),
+                currentLesson = fixedCurrent.copy(isCurrentlyPlaying = true),
                 upNextLessons = upNext.map { item ->
-                    if (item.id == current.id) item.copy(isCurrentlyPlaying = true)
+                    if (item.id == fixedCurrent.id) item.copy(isCurrentlyPlaying = true)
                     else item.copy(isCurrentlyPlaying = false)
                 },
                 youtubeVideoId = videoId,

@@ -1,27 +1,38 @@
 package com.example.smartreview.data.repository.firestore
 
 import com.example.smartreview.data.model.Quiz
-import com.example.smartreview.data.model.QuizOption
 import com.example.smartreview.data.model.QuizQuestion
 import com.example.smartreview.data.remote.firestore.CourseFirestoreMapper
 import com.example.smartreview.data.remote.firestore.CourseFirestorePaths
 import com.example.smartreview.data.repository.CourseCache
 import com.example.smartreview.data.repository.QuizRepository
-import com.google.android.gms.tasks.Tasks
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
+/**
+ * Firestore-backed QuizRepository that reads quiz data from courses collection.
+ *
+ * Quiz data is embedded in lessons with type="quiz" inside course.modules[].lessons[]
+ */
 class FirestoreQuizRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) : QuizRepository {
 
-    override fun getQuiz(quizId: String): Quiz? {
-        if (quizId.isBlank()) return null
+    override suspend fun getQuiz(quizId: String): Quiz? = withContext(Dispatchers.IO) {
+        if (quizId.isBlank()) return@withContext null
 
-        return try {
-            val task = firestore.collection(CourseFirestorePaths.COURSES)
+        android.util.Log.d("FirestoreQuizRepository", "Looking for quiz with ID: $quizId")
+
+        return@withContext try {
+            val snapshot = firestore.collection(CourseFirestorePaths.COURSES)
                 .whereEqualTo(CourseFirestorePaths.Fields.STATUS, "published")
                 .get()
-            val snapshot = Tasks.await(task)
+                .await()
+
+            android.util.Log.d("FirestoreQuizRepository", "Checking ${snapshot.documents.size} courses")
+
             for (doc in snapshot.documents) {
                 val course = CourseFirestoreMapper.toCourse(doc.id, doc.data)
                 if (course != null) {
@@ -29,14 +40,17 @@ class FirestoreQuizRepository(
                     for (module in course.modules) {
                         for (lesson in module.lessons) {
                             if (matchesQuizId(lesson, quizId)) {
-                                return lessonToQuiz(lesson)
+                                android.util.Log.d("FirestoreQuizRepository", "Found quiz lesson: ${lesson.id} in course ${course.id}")
+                                return@withContext lessonToQuiz(lesson, course.id)
                             }
                         }
                     }
                 }
             }
+            android.util.Log.d("FirestoreQuizRepository", "Quiz not found: $quizId")
             null
         } catch (e: Exception) {
+            android.util.Log.e("FirestoreQuizRepository", "Error finding quiz", e)
             null
         }
     }
@@ -45,116 +59,96 @@ class FirestoreQuizRepository(
         return lesson.quizId == quizId || lesson.id == quizId
     }
 
-    private fun lessonToQuiz(lesson: com.example.smartreview.data.model.LessonItem): Quiz? {
+    private fun lessonToQuiz(lesson: com.example.smartreview.data.model.LessonItem, courseId: String): Quiz? {
         val contentData = extractContentData(lesson.contentData) ?: return null
         val questionMaps = listField(contentData, CourseFirestorePaths.ContentFields.QUESTIONS)
         val questions = questionMaps.mapIndexedNotNull { index, rawQuestion -> mapQuestion(rawQuestion, index) }
-        if (questions.isEmpty()) return null
+        if (questions.isEmpty()) {
+            android.util.Log.d("FirestoreQuizRepository", "No questions found for quiz: ${lesson.id}")
+            return null
+        }
+
+        android.util.Log.d("FirestoreQuizRepository", "Loaded ${questions.size} questions for quiz: ${lesson.id}")
 
         return Quiz(
             id = lesson.quizId ?: lesson.id,
             title = lesson.title.ifBlank { "Quiz" },
-            subtitle = "Quiz trên bài học",
+            description = "Quiz trên bài học",
             lessonId = lesson.id,
+            courseId = courseId,
+            moduleId = null,
             questions = questions,
+            passingScore = extractPassingScore(contentData),
+            xpReward = lesson.xpReward.toLong(),
+            duration = 0,
         )
+    }
+
+    private fun extractPassingScore(contentData: Map<String, Any?>): Int {
+        return (contentData["passingScore"] as? Number)?.toInt() ?: 70
     }
 
     private fun mapQuestion(raw: Map<String, Any?>, index: Int): QuizQuestion? {
         val questionId = stringField(raw, CourseFirestorePaths.ContentFields.ID) ?: "q${index + 1}"
-        
-        // CHANGE 1: Support both "text" (new schema) and "prompt"/"title" (old schema)
-        val prompt = stringField(
-            raw, 
-            "text",  // NEW: Firestore Web Admin uses "text"
-            CourseFirestorePaths.ContentFields.PROMPT,  // OLD: Mock/legacy uses "prompt"
-            CourseFirestorePaths.ContentFields.TITLE     // OLD: Fallback to "title"
+
+        val text = stringField(
+            raw,
+            "text",
+            CourseFirestorePaths.ContentFields.PROMPT,
+            CourseFirestorePaths.ContentFields.TITLE
         ) ?: return null
-        
+
         val explanation = stringField(raw, CourseFirestorePaths.ContentFields.EXPLANATION) ?: ""
-        
-        // CHANGE 2: Parse options—support BOTH string array and object array
-        val options = parseOptions(raw, questionId, index)
+
+        val options = parseOptionsAsStrings(raw)
         if (options.isEmpty()) return null
-        
-        // CHANGE 3: Support both correctOptionIndex (new) and correct (old)
-        val correctOptionId = parseCorrectOptionId(raw, options)
+
+        val correctOptionIndex = parseCorrectOptionIndex(raw, options.size)
 
         return QuizQuestion(
             id = questionId,
-            prompt = prompt,
+            text = text,
             options = options,
-            correctOptionId = correctOptionId.ifBlank { options.firstOrNull()?.id ?: "" },
+            correctOptionIndex = correctOptionIndex,
             explanation = explanation,
         )
     }
 
-    /**
-     * Parse options from Firestore. Supports two formats:
-     * 1. STRING ARRAY (new schema):  ["Option A", "Option B", "Option C"]
-     * 2. OBJECT ARRAY (old schema):  [{id, label, answer, ...}, ...]
-     * 
-     * @return List of QuizOption objects (never empty if valid options exist)
-     */
-    private fun parseOptions(raw: Map<String, Any?>, questionId: String, questionIndex: Int): List<QuizOption> {
+    private fun parseOptionsAsStrings(raw: Map<String, Any?>): List<String> {
         val optionsList = raw[CourseFirestorePaths.ContentFields.OPTIONS] ?: return emptyList()
-        
+
         return when {
-            // NEW SCHEMA: Options are plain strings: ["Option A", "Option B", ...]
             optionsList is List<*> && optionsList.isNotEmpty() && optionsList.first() is String -> {
-                optionsList
-                    .filterIsInstance<String>()
-                    .mapIndexed { optIndex, label ->
-                        QuizOption(
-                            id = "${questionId}_opt_${optIndex + 1}",  // e.g., "q_123_opt_1"
-                            label = label.trim()
-                        )
-                    }
+                optionsList.filterIsInstance<String>()
             }
-            
-            // OLD SCHEMA: Options are objects: [{id, label, answer, ...}, ...]
             optionsList is List<*> -> {
-                listField(raw, CourseFirestorePaths.ContentFields.OPTIONS)
-                    .mapIndexedNotNull { optIndex, rawOption ->
-                        mapOption(rawOption, questionId, optIndex)
+                optionsList.mapNotNull { obj ->
+                    when (obj) {
+                        is String -> obj
+                        is Map<*, *> -> (obj["label"] ?: obj["answer"] ?: obj["title"]) as? String
+                        else -> null
                     }
+                }
             }
-            
             else -> emptyList()
         }
     }
 
-    /**
-     * Determine the correct option ID from Firestore data. Supports two formats:
-     * 1. correctOptionIndex (new):  0, 1, 2, 3 (integer index into options array)
-     * 2. correct (old):             "option_id_string"
-     * 
-     * @param raw Raw question data from Firestore
-     * @param options Parsed QuizOption list (for index lookup)
-     * @return Option ID string (empty if not found, caller uses fallback)
-     */
-    private fun parseCorrectOptionId(raw: Map<String, Any?>, options: List<QuizOption>): String {
-        // NEW SCHEMA: Try correctOptionIndex first (most reliable)
+    private fun parseCorrectOptionIndex(raw: Map<String, Any?>, optionsSize: Int): Int {
         val correctIndex = (raw["correctOptionIndex"] as? Number)?.toInt()
-        if (correctIndex != null && correctIndex >= 0 && correctIndex < options.size) {
-            return options[correctIndex].id
+        if (correctIndex != null && correctIndex >= 0 && correctIndex < optionsSize) {
+            return correctIndex
         }
-        
-        // OLD SCHEMA: Try string-based "correct" field
-        val correctId = stringField(raw, CourseFirestorePaths.ContentFields.CORRECT)
-        if (!correctId.isNullOrBlank()) {
-            return correctId
-        }
-        
-        return ""  // Empty = caller will use first option as fallback
-    }
 
-    private fun mapOption(raw: Map<String, Any?>, questionId: String, index: Int): QuizOption? {
-        val optionId = stringField(raw, CourseFirestorePaths.ContentFields.ID) ?: "${questionId}_opt_${index + 1}"
-        val label = stringField(raw, CourseFirestorePaths.ContentFields.LABEL, CourseFirestorePaths.ContentFields.ANSWER, CourseFirestorePaths.ContentFields.TITLE)
-            ?: raw[CourseFirestorePaths.ContentFields.LABEL]?.toString()
-            ?: return null
-        return QuizOption(id = optionId, label = label)
+        val correctValue = stringField(raw, CourseFirestorePaths.ContentFields.CORRECT)
+        if (correctValue != null) {
+            val index = correctValue.toIntOrNull()
+            if (index != null && index >= 0 && index < optionsSize) {
+                return index
+            }
+        }
+
+        return 0
     }
 
     @Suppress("UNCHECKED_CAST")
