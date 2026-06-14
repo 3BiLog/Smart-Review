@@ -45,12 +45,16 @@ object LearningFlowNavigation {
      */
     fun NavHostController.navigateLessonVideo(lessonId: String, courseId: String? = null) {
         if (!courseId.isNullOrBlank()) {
-            navigate(RouteHelpers.lessonPlayerRoute(courseId, lessonId)) {
+            val route = RouteHelpers.lessonPlayerRoute(courseId, lessonId)
+            android.util.Log.d("LearningFlowNavigation", "navigateLessonVideo: courseId=$courseId, lessonId=$lessonId, route=$route")
+            navigate(route) {
                 launchSingleTop = true
             }
             return
         }
-        navigate(lessonVideoRoute(lessonId)) {
+        val route = lessonVideoRoute(lessonId)
+        android.util.Log.d("LearningFlowNavigation", "navigateLessonVideo (no course): lessonId=$lessonId, route=$route")
+        navigate(route) {
             launchSingleTop = true
         }
     }

@@ -48,6 +48,9 @@ fun LessonVideoPlayerScreen(
 ) {
     val state  by vm.uiState.collectAsStateWithLifecycle()
     val lesson  = state.currentLesson ?: return
+    
+    // Log for debugging navigation flow
+    android.util.Log.d("LessonVideoPlayerScreen", "Rendered: lessonId=$lessonId, courseId=$courseId, current=${lesson.id}, type=${lesson.lessonType}")
 
     Scaffold(
         containerColor = Background,
@@ -141,10 +144,22 @@ fun LessonVideoPlayerScreen(
                     isCurrent = item.isCurrentlyPlaying,
                     onClick  = {
                         when (item.lessonType) {
-                            com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> navController.navigateLessonVideo(item.id, courseId = courseId)
-                            com.example.smartreview.data.model.LessonType.READING -> navController.navigateLessonContent(item.id)
-                            com.example.smartreview.data.model.LessonType.QUIZ -> navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(item.quizId ?: item.id))
-                            com.example.smartreview.data.model.LessonType.FLASHCARD -> navController.navigate(Screen.Flashcard.route)
+                            com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> {
+                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "VIDEO: item=${item.id}, courseId=$courseId")
+                                navController.navigateLessonVideo(item.id, courseId = courseId)
+                            }
+                            com.example.smartreview.data.model.LessonType.READING -> {
+                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "READING: item=${item.id}")
+                                navController.navigateLessonContent(item.id)
+                            }
+                            com.example.smartreview.data.model.LessonType.QUIZ -> {
+                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "QUIZ: item=${item.id}, quizId=${item.quizId}")
+                                navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(item.quizId ?: item.id)) { launchSingleTop = true }
+                            }
+                            com.example.smartreview.data.model.LessonType.FLASHCARD -> {
+                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "FLASHCARD: item=${item.id}")
+                                navController.navigate(Screen.Flashcard.route) { launchSingleTop = true }
+                            }
                         }
                     },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
