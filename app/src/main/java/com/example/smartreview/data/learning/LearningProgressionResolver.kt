@@ -17,7 +17,6 @@ import com.example.smartreview.data.repository.LessonRepository
 import com.example.smartreview.data.repository.LessonRepositoryProvider
 import com.example.smartreview.data.repository.QuizRepositoryProvider
 import com.example.smartreview.ui.navigation.LearningFlowNavigation
-import com.example.smartreview.ui.navigation.Screen
 import com.example.smartreview.ui.screens.lesson.lessonContentRoute
 import com.example.smartreview.ui.screens.quiz.quizRoute
 import kotlinx.coroutines.flow.first
@@ -52,16 +51,18 @@ class LearningProgressionResolver(
 
     fun resolveFlashcard(snapshot: FlashcardProgressSnapshot): LearningProgressionItem? {
         if (!ResumeLearningSupport.isFlashcardSnapshotResumable(snapshot)) return null
-        val deck = FlashcardRepositoryProvider.default.getDeck(snapshot.deckId) ?: return null
+        val deck = runBlocking { FlashcardRepositoryProvider.default.getDeck(snapshot.deckId) } ?: return null
         val total = deck.cards.size.coerceAtLeast(1)
         val studied = snapshot.knownCount + snapshot.reviewCount
+        // FIXED: Use direct route string instead of Screen.Flashcard.route
+        val route = "flashcard/${snapshot.deckId}"
         return LearningProgressionItem(
             type = LearningActivityType.FLASHCARD,
             contentId = snapshot.deckId,
             title = deck.title,
             progressPercent = studied.toFloat() / total,
             imageUrl = "https://picsum.photos/seed/flashcard_${snapshot.deckId}/400/200",
-            route = Screen.Flashcard.route,
+            route = route,
             courseTitle = "Ôn tập flashcard",
             progressDetail = "${studied}/${total} thẻ",
             lastActivityAt = snapshot.sessionStartedAt,

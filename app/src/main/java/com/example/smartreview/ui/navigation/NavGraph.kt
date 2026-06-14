@@ -42,6 +42,8 @@ import com.example.smartreview.ui.auth.authGraph
 import com.example.smartreview.ui.onboarding.OnboardingRoutes
 import com.example.smartreview.ui.onboarding.onboardingGraph
 import com.example.smartreview.ui.navigation.RouteHelpers
+import com.example.smartreview.ui.screens.reading.READING_ROUTE
+import com.example.smartreview.ui.screens.reading.ReadingScreen
 
 sealed class Screen(val route: String) {
     object Home      : Screen("home")
@@ -49,7 +51,8 @@ sealed class Screen(val route: String) {
     object Search    : Screen(SEARCH_ROUTE)
     object Community : Screen(COMMUNITY_ROOMS_ROUTE)
     object Profile   : Screen("profile")
-    object Flashcard : Screen("flashcard")
+    // REMOVED: Flashcard from here because it needs lessonId parameter
+    // object Flashcard : Screen("flashcard")
     object Pomodoro  : Screen("pomodoro")
 }
 
@@ -81,11 +84,11 @@ fun SmartReviewNavGraph(navController: NavHostController) {
             },
         )
         composable(Screen.Home.route)      { HomeScreen(navController) }
-        composable(Screen.Flashcard.route) { FlashcardScreen(navController) }
+        // REMOVED: Old flashcard route without lessonId
+        // composable(Screen.Flashcard.route) { FlashcardScreen(navController) }
         composable(Screen.Pomodoro.route)  { PomodoroScreen(navController) }
         composable(Screen.Profile.route)   { ProfileScreen(navController) }
 
-        // TEMPORARILY COMMENTED - Flashcard summary may still work
         composable(
             route = FLASHCARD_SUMMARY_ROUTE,
             arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
@@ -97,60 +100,60 @@ fun SmartReviewNavGraph(navController: NavHostController) {
         }
 
         composable(COURSES_LIST_ROUTE) {
-             CourseListScreen(navController = navController)
-         }
-         composable(
-             route     = COURSE_DETAIL_ROUTE,
-             arguments = listOf(navArgument("courseId") { type = NavType.StringType })
-         ) { backStackEntry ->
-             CourseDetailScreen(
-                 navController = navController,
-                 courseId      = backStackEntry.arguments?.getString("courseId") ?: "",
-             )
-         }
-          composable(
-             route = RouteHelpers.LESSON_PLAYER_ROUTE,
-             arguments = listOf(
-                 navArgument("courseId") { type = NavType.StringType },
-                 navArgument("lessonId") { type = NavType.StringType },
-             ),
-         ) { backStackEntry ->
-             LessonVideoPlayerScreen(
-                 navController = navController,
-                 lessonId      = backStackEntry.arguments?.getString("lessonId") ?: "",
-                 courseId      = backStackEntry.arguments?.getString("courseId"),
-             )
-         }
-         // Legacy single-arg route (backwards compatibility)
-         composable(
-             route     = LESSON_PLAYER_ROUTE,
-             arguments = listOf(navArgument("lessonId") { type = NavType.StringType })
-         ) { backStackEntry ->
-             LessonVideoPlayerScreen(
-                 navController = navController,
-                 lessonId      = backStackEntry.arguments?.getString("lessonId") ?: "",
-             )
-         }
-         composable(
-             route = LESSON_ROUTE,
-             arguments = listOf(navArgument("lessonId") { type = NavType.StringType }),
-         ) { backStackEntry ->
-             LessonScreen(
-                 navController = navController,
-                 lessonId = backStackEntry.arguments?.getString("lessonId").orEmpty(),
-             )
-         }
-         composable(
-             route = LESSON_SUMMARY_ROUTE,
-             arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
-         ) { backStackEntry ->
-             LessonSummaryScreen(
-                 navController = navController,
-                 sessionId = backStackEntry.arguments?.getString("sessionId").orEmpty(),
-             )
-         }
+            CourseListScreen(navController = navController)
+        }
         composable(
-            route = QUIZ_ROUTE,  // QUIZ_ROUTE phải là "quiz/{quizId}"
+            route     = COURSE_DETAIL_ROUTE,
+            arguments = listOf(navArgument("courseId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            CourseDetailScreen(
+                navController = navController,
+                courseId      = backStackEntry.arguments?.getString("courseId") ?: "",
+            )
+        }
+        composable(
+            route = RouteHelpers.LESSON_PLAYER_ROUTE,
+            arguments = listOf(
+                navArgument("courseId") { type = NavType.StringType },
+                navArgument("lessonId") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            LessonVideoPlayerScreen(
+                navController = navController,
+                lessonId      = backStackEntry.arguments?.getString("lessonId") ?: "",
+                courseId      = backStackEntry.arguments?.getString("courseId"),
+            )
+        }
+        // Legacy single-arg route (backwards compatibility)
+        composable(
+            route     = LESSON_PLAYER_ROUTE,
+            arguments = listOf(navArgument("lessonId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            LessonVideoPlayerScreen(
+                navController = navController,
+                lessonId      = backStackEntry.arguments?.getString("lessonId") ?: "",
+            )
+        }
+        composable(
+            route = LESSON_ROUTE,
+            arguments = listOf(navArgument("lessonId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            LessonScreen(
+                navController = navController,
+                lessonId = backStackEntry.arguments?.getString("lessonId").orEmpty(),
+            )
+        }
+        composable(
+            route = LESSON_SUMMARY_ROUTE,
+            arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            LessonSummaryScreen(
+                navController = navController,
+                sessionId = backStackEntry.arguments?.getString("sessionId").orEmpty(),
+            )
+        }
+        composable(
+            route = QUIZ_ROUTE,
             arguments = listOf(navArgument("quizId") { type = NavType.StringType })
         ) { backStackEntry ->
             QuizScreen(
@@ -158,18 +161,40 @@ fun SmartReviewNavGraph(navController: NavHostController) {
                 quizId = backStackEntry.arguments?.getString("quizId").orEmpty(),
             )
         }
-         composable(
-             route = QUIZ_SUMMARY_ROUTE,
-             arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
-         ) { backStackEntry ->
-             QuizSummaryScreen(
-                 navController = navController,
-                 sessionId = backStackEntry.arguments?.getString("sessionId").orEmpty(),
-             )
-         }
-         composable(SEARCH_ROUTE) {
-             SearchScreen(navController = navController)
-         }
+        composable(
+            route = QUIZ_SUMMARY_ROUTE,
+            arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            QuizSummaryScreen(
+                navController = navController,
+                sessionId = backStackEntry.arguments?.getString("sessionId").orEmpty(),
+            )
+        }
+        composable(SEARCH_ROUTE) {
+            SearchScreen(navController = navController)
+        }
+
+        composable(
+            route = READING_ROUTE,
+            arguments = listOf(navArgument("lessonId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            ReadingScreen(
+                navController = navController,
+                lessonId = backStackEntry.arguments?.getString("lessonId") ?: return@composable
+            )
+        }
+
+        // NEW: Flashcard route with lessonId parameter
+        composable(
+            route = "flashcard/{lessonId}",
+            arguments = listOf(navArgument("lessonId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val lessonId = backStackEntry.arguments?.getString("lessonId") ?: return@composable
+            FlashcardScreen(
+                navController = navController,
+                lessonId = lessonId
+            )
+        }
 
         composable(COMMUNITY_ROOMS_ROUTE) {
             CommunityRoomsScreen(navController = navController)

@@ -31,7 +31,8 @@ import com.example.smartreview.ui.theme.*
 @Composable
 fun FlashcardScreen(
     navController: NavHostController,
-    vm: FlashcardViewModel = viewModel(factory = FlashcardViewModel.provideFactory()),
+    lessonId: String,
+    vm: FlashcardViewModel = viewModel(factory = FlashcardViewModel.provideFactory(lessonId)),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
 
@@ -230,7 +231,7 @@ fun FlipCard(
                                     brush = Brush.linearGradient(listOf(GradientStart, Secondary)),
                                     fontWeight = FontWeight.Bold,
                                 ),
-                            ) { append(card.keyword) }
+                            ) { append(card.front) }
                             append("?")
                         },
                         fontSize = 26.sp,
@@ -260,7 +261,7 @@ fun FlipCard(
                     modifier = Modifier.fillMaxSize().padding(24.dp),
                 ) {
                     Text(
-                        text = card.keyword,
+                        text = card.front,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Secondary,
@@ -268,7 +269,7 @@ fun FlipCard(
                     )
                     Spacer(Modifier.height(20.dp))
                     Text(
-                        text = card.answer,
+                        text = card.back,
                         fontSize = 16.sp,
                         color = OnSurface,
                         textAlign = TextAlign.Center,

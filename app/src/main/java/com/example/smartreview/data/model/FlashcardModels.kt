@@ -1,8 +1,39 @@
 package com.example.smartreview.data.model
 
 /**
- * Local-first flashcard domain models (not stored in Firestore yet).
+ * Flashcard models matching Firestore schema from Web Admin
+ *
+ * Firestore structure:
+ * courses/{courseId}/modules/{moduleId}/lessons/{lessonId}
+ *   type: "flashcard"
+ *   content.data {
+ *     cards: [{
+ *       id, front, back, hint
+ *     }]
+ *   }
  */
+
+// NEW MODEL for Firestore
+data class Flashcard(
+    val id: String = "",
+    val front: String = "",
+    val back: String = "",
+    val hint: String = ""
+)
+
+data class FlashcardDeck(
+    val id: String = "",
+    val title: String = "",
+    val description: String = "",
+    val cards: List<Flashcard> = emptyList(),
+    val xpReward: Long = 30,
+    val courseId: String? = null,
+    val moduleId: String? = null,
+    val lessonId: String? = null
+)
+
+// Keep old model for backward compatibility (deprecate later)
+@Deprecated("Use Flashcard with front/back instead")
 data class FlashcardCard(
     val id: String,
     val question: String,
@@ -10,16 +41,11 @@ data class FlashcardCard(
     val answer: String,
 )
 
-data class FlashcardDeck(
-    val id: String,
-    val title: String,
-    val cards: List<FlashcardCard>,
-)
-
 enum class CardStudyStatus {
     UNSEEN,
     KNOWN,
     REPEAT,
+    LEARNING  // Added for new flow
 }
 
 data class FlashcardSessionResult(
@@ -45,3 +71,11 @@ data class FlashcardSessionResult(
         return "%02d:%02d".format(minutes, seconds)
     }
 }
+
+// Extension to convert from Firestore Flashcard to old FlashcardCard format
+fun Flashcard.toLegacyCard(index: Int): FlashcardCard = FlashcardCard(
+    id = this.id,
+    question = this.front,
+    keyword = "Card ${index + 1}",
+    answer = this.back
+)

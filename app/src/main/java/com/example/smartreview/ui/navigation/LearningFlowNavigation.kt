@@ -7,6 +7,7 @@ import com.example.smartreview.ui.screens.coursedetail.courseDetailRoute
 import com.example.smartreview.ui.screens.lesson.lessonContentRoute
 import com.example.smartreview.ui.screens.lessonplayer.lessonPlayerRoute
 import com.example.smartreview.ui.navigation.Screen
+import com.example.smartreview.ui.screens.reading.readingRoute
 
 /**
  * Canonical routing for the separated learning flow:
@@ -62,6 +63,11 @@ object LearningFlowNavigation {
     /** @deprecated Use [navigateLessonVideo]. */
     fun NavHostController.navigateLessonEntry(lessonId: String) = navigateLessonVideo(lessonId)
 
+    fun NavHostController.navigateReading(lessonId: String) {
+        navigate(readingRoute(lessonId)) {
+            launchSingleTop = true
+        }
+    }
     fun NavHostController.navigateLessonContent(lessonId: String) {
         navigate(lessonContentRoute(lessonId)) {
             launchSingleTop = true
@@ -76,7 +82,9 @@ object LearningFlowNavigation {
             com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> navigateLessonVideo(lesson.id, courseId = course.id)
             com.example.smartreview.data.model.LessonType.READING -> navigateLessonContent(lesson.id)
             com.example.smartreview.data.model.LessonType.QUIZ -> navigate(com.example.smartreview.ui.screens.quiz.quizRoute(lesson.quizId ?: lesson.id)) { launchSingleTop = true }
-            com.example.smartreview.data.model.LessonType.FLASHCARD -> navigate(Screen.Flashcard.route) { launchSingleTop = true }
+            com.example.smartreview.data.model.LessonType.FLASHCARD -> {
+                navigate("flashcard/${lesson.id}") { launchSingleTop = true }  // Thay vì Screen.Flashcard.route
+            }
         }
     }
  
@@ -92,7 +100,9 @@ object LearningFlowNavigation {
             com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> navigateLessonVideo(lesson.id, courseId = course.id)
             com.example.smartreview.data.model.LessonType.READING -> navigateLessonContent(lesson.id)
             com.example.smartreview.data.model.LessonType.QUIZ -> navigate(com.example.smartreview.ui.screens.quiz.quizRoute(lesson.quizId ?: lesson.id)) { launchSingleTop = true }
-            com.example.smartreview.data.model.LessonType.FLASHCARD -> navigate(Screen.Flashcard.route) { launchSingleTop = true }
+            com.example.smartreview.data.model.LessonType.FLASHCARD -> {
+                navigate("flashcard/${lesson.id}") { launchSingleTop = true }  // Thay vì Screen.Flashcard.route
+            }
         }
     }
 

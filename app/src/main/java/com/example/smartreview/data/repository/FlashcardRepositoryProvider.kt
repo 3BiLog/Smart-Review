@@ -1,7 +1,7 @@
 package com.example.smartreview.data.repository
 
-import com.example.smartreview.data.repository.mock.MockFlashcardRepository
+import com.example.smartreview.data.repository.firestore.FirestoreFlashcardRepository
 
 object FlashcardRepositoryProvider {
-    val default: FlashcardRepository = MockFlashcardRepository()
+    val default: FlashcardRepository = FirestoreFlashcardRepository()
 }

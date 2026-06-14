@@ -32,6 +32,8 @@ fun QuizScreen(
     val scope = rememberCoroutineScope()
     val quiz = state.quiz
 
+    android.util.Log.d("QuizScreen", "UI rendering, isLoading=${state.isLoading}, quiz=${quiz?.title}, questions=${quiz?.questions?.size}")
+
     if (state.isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = Primary)
@@ -139,7 +141,6 @@ fun QuizScreen(
                 )
                 Spacer(Modifier.height(16.dp))
 
-                // FIXED: Use selectedOptionId (String) instead of selectedOptionIndex (Int)
                 question.options.forEachIndexed { index, optionLabel ->
                     val selectedOptionId = state.selectedOptionId
                     val isSelected = selectedOptionId?.toIntOrNull() == index
@@ -163,7 +164,7 @@ fun QuizScreen(
                                 shape = RoundedCornerShape(12.dp),
                             )
                             .clickable(enabled = !state.showFeedback) {
-                                vm.selectOption(index.toString())  // Pass index as String
+                                vm.selectOption(index.toString())
                             },
                     ) {
                         Text(

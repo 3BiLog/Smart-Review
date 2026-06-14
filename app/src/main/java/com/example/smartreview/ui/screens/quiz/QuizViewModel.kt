@@ -46,6 +46,7 @@ class QuizViewModel(
     val uiState: StateFlow<QuizUiState> = _uiState.asStateFlow()
 
     init {
+        android.util.Log.d("QuizViewModel", ">>> Initializing with quizId=$quizId")
         viewModelScope.launch { loadQuiz() }
     }
 
@@ -66,7 +67,6 @@ class QuizViewModel(
         val selectedOptionId = state.selectedOptionId ?: return
         if (state.showFeedback) return
 
-        // FIXED: Convert String to Int for comparison
         val selectedIndex = selectedOptionId.toIntOrNull()
         val isCorrect = selectedIndex != null && selectedIndex == question.correctOptionIndex
 
@@ -194,10 +194,5 @@ class QuizViewModel(
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
                     QuizViewModel(quizId) as T
             }
-    }
-
-    init {
-        android.util.Log.d("QuizViewModel", ">>> Initializing with quizId=$quizId")
-        viewModelScope.launch { loadQuiz() }
     }
 }

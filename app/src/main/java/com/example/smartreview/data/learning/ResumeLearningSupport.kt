@@ -21,10 +21,10 @@ object ResumeLearningSupport {
         Log.d(
             LOG_TAG,
             "loaded snapshot: flashcard=${progress.flashcardInProgress?.deckId}, " +
-                "lesson=${progress.lessonInProgress?.lessonId}, " +
-                "quiz=${progress.quizInProgress?.quizId}, " +
-                "completedLessons=${progress.completedLessonIds.size}, " +
-                "completedQuizzes=${progress.completedQuizIds.size}",
+                    "lesson=${progress.lessonInProgress?.lessonId}, " +
+                    "quiz=${progress.quizInProgress?.quizId}, " +
+                    "completedLessons=${progress.completedLessonIds.size}, " +
+                    "completedQuizzes=${progress.completedQuizIds.size}",
         )
     }
 
@@ -56,9 +56,10 @@ object ResumeLearningSupport {
         return sanitized to filteredReasons
     }
 
+    // FIXED: Use runBlocking for Flashcard repository
     fun isFlashcardSnapshotResumable(snapshot: FlashcardProgressSnapshot): Boolean {
         if (snapshot.deckId.isBlank()) return false
-        val deck = FlashcardRepositoryProvider.default.getDeck(snapshot.deckId) ?: return false
+        val deck = runBlocking { FlashcardRepositoryProvider.default.getDeck(snapshot.deckId) } ?: return false
         val total = deck.cards.size
         if (total == 0) return false
         val studied = snapshot.knownCount + snapshot.reviewCount

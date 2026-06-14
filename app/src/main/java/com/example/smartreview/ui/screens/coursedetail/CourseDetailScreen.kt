@@ -31,12 +31,15 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.smartreview.data.model.CourseModule
 import com.example.smartreview.data.model.LessonItem
+import com.example.smartreview.data.model.LessonType
 import com.example.smartreview.ui.screens.courses.difficultyColor
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateHeroPlay
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateStartLearning
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonContent
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateReading
 import com.example.smartreview.ui.navigation.Screen
+import com.example.smartreview.ui.screens.quiz.quizRoute
 import com.example.smartreview.ui.theme.*
 
 // ─── Route ───────────────────────────────────────────────────────────────────
@@ -224,15 +227,16 @@ fun CourseDetailScreen(
                     isExpanded = module.id in state.expandedModuleIds,
                     onToggle   = { vm.toggleModule(module.id) },
                     onLessonClick = { lesson ->
+                        android.util.Log.d("CourseDetailScreen", "Lesson clicked: id=${lesson.id}, type=${lesson.lessonType}, isLocked=${lesson.isLocked}")
                         if (!lesson.isLocked) {
-                        when (lesson.lessonType) {
-                            com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> navController.navigateLessonVideo(lesson.id, courseId = course.id)
-                            com.example.smartreview.data.model.LessonType.READING -> navController.navigateLessonContent(lesson.id)
-                            com.example.smartreview.data.model.LessonType.QUIZ -> navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(lesson.quizId ?: lesson.id))
-                            com.example.smartreview.data.model.LessonType.FLASHCARD -> navController.navigate(Screen.Flashcard.route)
+                            when (lesson.lessonType) {
+                                LessonType.VIDEO, LessonType.UNKNOWN -> navController.navigateLessonVideo(lesson.id, courseId = course.id)
+                                LessonType.READING -> navController.navigateReading(lesson.id)  // Đã có navigateReading
+                                LessonType.QUIZ -> navController.navigate(quizRoute(lesson.quizId ?: lesson.id))
+                                LessonType.FLASHCARD -> navController.navigate("flashcard/${lesson.id}")
+                            }
                         }
-                    }
-                },
+                    },
 
                 modifier   = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )

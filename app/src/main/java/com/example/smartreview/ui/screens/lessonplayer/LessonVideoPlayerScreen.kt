@@ -30,7 +30,6 @@ import com.example.smartreview.data.model.LessonType
 import com.example.smartreview.ui.components.YoutubeLessonPlayer
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonContent
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
-import com.example.smartreview.ui.navigation.Screen
 import com.example.smartreview.ui.theme.*
 
 // ─── Route ───────────────────────────────────────────────────────────────────
@@ -107,7 +106,7 @@ fun LessonVideoPlayerScreen(
                                     }
                                     LessonType.FLASHCARD -> {
                                         android.util.Log.d("LessonVideoPlayerScreen", ">>> Navigating to FLASHCARD: ${nextLesson.id}")
-                                        navController.navigate(Screen.Flashcard.route) { launchSingleTop = true }
+                                        navController.navigate("flashcard/${nextLesson.id}") { launchSingleTop = true }
                                     }
                                 }
                             }
@@ -170,7 +169,7 @@ fun LessonVideoPlayerScreen(
                             }
                             LessonType.FLASHCARD -> {
                                 android.util.Log.d("LessonVideoPlayerScreen.UpNext", "FLASHCARD: item=${playlistItem.id}")
-                                navController.navigate(Screen.Flashcard.route) { launchSingleTop = true }
+                                navController.navigate("flashcard/${playlistItem.id}") { launchSingleTop = true }
                             }
                         }
                     },

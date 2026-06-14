@@ -6,10 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.smartreview.data.flashcard.FlashcardSessionStore
 import com.example.smartreview.data.learning.LearningProgressServiceProvider
 import com.example.smartreview.data.model.CardStudyStatus
-import com.example.smartreview.data.model.FlashcardCard
+import com.example.smartreview.data.model.Flashcard
 import com.example.smartreview.data.model.FlashcardProgressSnapshot
 import com.example.smartreview.data.model.FlashcardSessionResult
-import com.example.smartreview.data.mock.MockFlashcardData
 import com.example.smartreview.data.repository.FlashcardRepository
 import com.example.smartreview.data.repository.FlashcardRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,9 +20,9 @@ import java.util.UUID
 
 data class FlashcardUiCard(
     val id: String,
-    val question: String,
-    val keyword: String,
-    val answer: String,
+    val front: String,
+    val back: String,
+    val hint: String
 )
 
 data class FlashcardUiState(
@@ -42,7 +41,7 @@ data class FlashcardUiState(
 )
 
 class FlashcardViewModel(
-    private val deckId: String = MockFlashcardData.DEFAULT_DECK_ID,
+    private val lessonId: String,
     private val flashcardRepository: FlashcardRepository = FlashcardRepositoryProvider.default,
 ) : ViewModel() {
 
@@ -55,6 +54,8 @@ class FlashcardViewModel(
     val uiState: StateFlow<FlashcardUiState> = _uiState.asStateFlow()
 
     init {
+        android.util.Log.d("FlashcardViewModel", "Initializing with lessonId=$lessonId")
+        android.util.Log.d("FlashcardViewModel", "Repository: ${flashcardRepository.javaClass.simpleName}")
         viewModelScope.launch { loadDeck() }
     }
 
@@ -102,8 +103,24 @@ class FlashcardViewModel(
     }
 
     private suspend fun loadDeck() {
-        val deck = flashcardRepository.getDeck(deckId)
-            ?: flashcardRepository.getDefaultDeck()
+        _uiState.update { it.copy(isLoading = true) }
+
+        android.util.Log.d("FlashcardViewModel", "Calling getDeck with lessonId=$lessonId")
+        val deck = flashcardRepository.getDeck(lessonId)
+
+        if (deck == null) {
+            android.util.Log.e("FlashcardViewModel", "Deck not found for lessonId: $lessonId")
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    cards = emptyList()
+                )
+            }
+            return
+        }
+
+        android.util.Log.d("FlashcardViewModel", "Deck found: ${deck.title}, cards=${deck.cards.size}")
+
         cardStatuses.clear()
         deck.cards.forEach { card -> cardStatuses[card.id] = CardStudyStatus.UNSEEN }
 
@@ -119,14 +136,23 @@ class FlashcardViewModel(
             }
         }
 
-        _uiState.value = FlashcardUiState(
-            deckId = deck.id,
-            deckTitle = deck.title,
-            cards = deck.cards.map { it.toUiCard() },
-            currentIndex = snapshot?.currentIndex ?: 0,
-            isLoading = false,
-            isResuming = isResuming,
-        )
+        _uiState.update {
+            it.copy(
+                deckId = deck.id,
+                deckTitle = deck.title,
+                cards = deck.cards.map { card ->
+                    FlashcardUiCard(
+                        id = card.id,
+                        front = card.front,
+                        back = card.back,
+                        hint = card.hint
+                    )
+                },
+                currentIndex = snapshot?.currentIndex ?: 0,
+                isLoading = false,
+                isResuming = isResuming,
+            )
+        }
         publishProgress(isFlipped = false)
         if (_uiState.value.remainingCount == 0) {
             _uiState.update { it.copy(isSessionComplete = true) }
@@ -181,6 +207,9 @@ class FlashcardViewModel(
                     review++
                     studied++
                 }
+                CardStudyStatus.LEARNING -> {
+                    studied++
+                }
                 CardStudyStatus.UNSEEN -> Unit
             }
         }
@@ -213,19 +242,12 @@ class FlashcardViewModel(
         }
     }
 
-    private fun FlashcardCard.toUiCard() = FlashcardUiCard(
-        id = id,
-        question = question,
-        keyword = keyword,
-        answer = answer,
-    )
-
     companion object {
-        fun provideFactory(deckId: String? = null): ViewModelProvider.Factory =
+        fun provideFactory(lessonId: String): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    FlashcardViewModel(deckId = deckId ?: MockFlashcardData.DEFAULT_DECK_ID) as T
+                    FlashcardViewModel(lessonId) as T
             }
     }
 }

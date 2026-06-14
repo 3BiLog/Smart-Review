@@ -3,6 +3,7 @@ package com.example.smartreview.data.remote.firestore
 import com.example.smartreview.data.model.Course
 import com.example.smartreview.data.model.CourseModule
 import com.example.smartreview.data.model.LessonItem
+import com.example.smartreview.data.model.LessonType
 import com.example.smartreview.data.video.YouTubeVideoUrl
 
 /**
@@ -71,13 +72,34 @@ object CourseFirestoreMapper {
                 val durationMinutes = lessonDoc.durationMinutes ?: 0L
                 val videoUrl = lessonDoc.videoUrl.orEmpty()
                 val thumbnail = resolveLessonThumbnail(videoUrl, courseThumbnailUrl, lessonDoc.id)
+
+                // Debug log for lesson type
+                val rawType = lessonDoc.type
+                val lowerType = rawType?.lowercase()
+                android.util.Log.d("CourseFirestoreMapper", "Lesson: id=${lessonDoc.id}, title=${lessonDoc.title}, rawType=$rawType, lowerType=$lowerType")
+
                 // map lesson type string to enum
-                val lessonType = when (lessonDoc.type?.lowercase()) {
-                    "video" -> com.example.smartreview.data.model.LessonType.VIDEO
-                    "reading", "read", "text" -> com.example.smartreview.data.model.LessonType.READING
-                    "quiz" -> com.example.smartreview.data.model.LessonType.QUIZ
-                    "flashcard" -> com.example.smartreview.data.model.LessonType.FLASHCARD
-                    else -> com.example.smartreview.data.model.LessonType.VIDEO
+                val lessonType = when (lowerType) {
+                    "video" -> {
+                        android.util.Log.d("CourseFirestoreMapper", "  -> Mapped to VIDEO")
+                        LessonType.VIDEO
+                    }
+                    "reading", "read", "text" -> {
+                        android.util.Log.d("CourseFirestoreMapper", "  -> Mapped to READING")
+                        LessonType.READING
+                    }
+                    "quiz" -> {
+                        android.util.Log.d("CourseFirestoreMapper", "  -> Mapped to QUIZ")
+                        LessonType.QUIZ
+                    }
+                    "flashcard" -> {
+                        android.util.Log.d("CourseFirestoreMapper", "  -> Mapped to FLASHCARD")
+                        LessonType.FLASHCARD
+                    }
+                    else -> {
+                        android.util.Log.d("CourseFirestoreMapper", "  -> Unknown type '$rawType', defaulting to VIDEO")
+                        LessonType.VIDEO
+                    }
                 }
 
                 LessonItem(
