@@ -3,7 +3,6 @@ package com.example.smartreview.data.repository
 import com.example.smartreview.data.content.CourseSearchMapper
 import com.example.smartreview.data.model.SearchResult
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 
 /**
  * Lightweight access point until DI (e.g. Hilt) is added.
@@ -14,8 +13,9 @@ object SearchRepositoryProvider {
     val default: SearchRepository = object : SearchRepository {
         private val courseRepository: CourseRepository = CourseRepositoryProvider.default
 
-        override fun getAllResults(): List<SearchResult> = runBlocking {
-            CourseSearchMapper.fromCourses(courseRepository.getAllCourses().first())
+        // ✅ Đã sửa: Bỏ runBlocking, dùng suspend
+        override suspend fun getAllResults(): List<SearchResult> {
+            return CourseSearchMapper.fromCourses(courseRepository.getAllCourses().first())
         }
     }
 }

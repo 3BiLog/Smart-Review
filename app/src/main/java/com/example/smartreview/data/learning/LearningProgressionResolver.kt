@@ -37,24 +37,23 @@ class LearningProgressionResolver(
     fun resolveFromProgress(progress: UserLearningProgress): List<LearningProgressionItem> {
         val items = buildList {
             progress.flashcardInProgress
-                ?.takeIf { ResumeLearningSupport.isFlashcardSnapshotResumable(it) }
+                ?.takeIf { runBlocking { ResumeLearningSupport.isFlashcardSnapshotResumable(it) } }
                 ?.let { add(resolveFlashcard(it)) }
             progress.lessonInProgress
-                ?.takeIf { ResumeLearningSupport.isLessonSnapshotResumable(it, progress) }
+                ?.takeIf { runBlocking { ResumeLearningSupport.isLessonSnapshotResumable(it, progress) } }
                 ?.let { add(resolveLesson(it, progress)) }
             progress.quizInProgress
-                ?.takeIf { ResumeLearningSupport.isQuizSnapshotResumable(it, progress) }
+                ?.takeIf { runBlocking { ResumeLearningSupport.isQuizSnapshotResumable(it, progress) } }
                 ?.let { add(resolveQuiz(it, progress)) }
         }
         return items.filterNotNull().sortedByDescending { it.lastActivityAt }
     }
 
     fun resolveFlashcard(snapshot: FlashcardProgressSnapshot): LearningProgressionItem? {
-        if (!ResumeLearningSupport.isFlashcardSnapshotResumable(snapshot)) return null
+        if (!runBlocking { ResumeLearningSupport.isFlashcardSnapshotResumable(snapshot) }) return null
         val deck = runBlocking { FlashcardRepositoryProvider.default.getDeck(snapshot.deckId) } ?: return null
         val total = deck.cards.size.coerceAtLeast(1)
         val studied = snapshot.knownCount + snapshot.reviewCount
-        // FIXED: Use direct route string instead of Screen.Flashcard.route
         val route = "flashcard/${snapshot.deckId}"
         return LearningProgressionItem(
             type = LearningActivityType.FLASHCARD,
@@ -73,8 +72,8 @@ class LearningProgressionResolver(
         snapshot: LessonProgressSnapshot,
         progress: UserLearningProgress,
     ): LearningProgressionItem? {
-        if (!ResumeLearningSupport.isLessonSnapshotResumable(snapshot, progress)) return null
-        val lesson = lessonRepository.getLesson(snapshot.lessonId) ?: return null
+        if (!runBlocking { ResumeLearningSupport.isLessonSnapshotResumable(snapshot, progress) }) return null
+        val lesson = runBlocking { lessonRepository.getLesson(snapshot.lessonId) } ?: return null
         val contentBlocks = LessonContentBlocks.contentBlocks(lesson)
         val contentIds = contentBlocks.map { it.id }.toSet()
         val viewedContent = snapshot.viewedBlockIds.intersect(contentIds).size
@@ -110,7 +109,7 @@ class LearningProgressionResolver(
         snapshot: QuizProgressSnapshot,
         progress: UserLearningProgress,
     ): LearningProgressionItem? {
-        if (!ResumeLearningSupport.isQuizSnapshotResumable(snapshot, progress)) return null
+        if (!runBlocking { ResumeLearningSupport.isQuizSnapshotResumable(snapshot, progress) }) return null
         val quiz = runBlocking { QuizRepositoryProvider.default.getQuiz(snapshot.quizId) } ?: return null
         val lessonPlacement = quiz.lessonId
             ?.takeIf { it.isNotBlank() }

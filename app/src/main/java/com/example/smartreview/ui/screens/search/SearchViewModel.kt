@@ -32,13 +32,15 @@ data class SearchUiState(
     val suggestions: List<String> = listOf(
         "React", "Compose", "Android", "Sản phẩm", "ViewModel",
     ),
+    val isLoading: Boolean = true,  // ✅ Thêm loading state
+    val error: String? = null,      // ✅ Thêm error state
 )
 
 class SearchViewModel(
     private val searchRepository: SearchRepository = SearchRepositoryProvider.default,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SearchUiState())
+    private val _uiState = MutableStateFlow(SearchUiState(isLoading = true))
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
     private var searchJob: Job? = null
@@ -98,11 +100,11 @@ class SearchViewModel(
         val state = _uiState.value
         val filtered = state.allResults.filter { r ->
             val matchesQuery = state.searchQuery.isBlank() ||
-                r.title.contains(state.searchQuery, ignoreCase = true) ||
-                r.instructorName.contains(state.searchQuery, ignoreCase = true) ||
-                r.category.contains(state.searchQuery, ignoreCase = true)
+                    r.title.contains(state.searchQuery, ignoreCase = true) ||
+                    r.instructorName.contains(state.searchQuery, ignoreCase = true) ||
+                    r.category.contains(state.searchQuery, ignoreCase = true)
             val matchesCategory = state.selectedFilter == "Tất cả" ||
-                r.category == state.selectedFilter
+                    r.category == state.selectedFilter
             val matchesPrice = r.price == 0L || r.price <= state.filterPriceUpper
             val matchesRating = r.rating >= state.filterMinRating
 
@@ -121,16 +123,30 @@ class SearchViewModel(
             SortOption.RATING -> list.sortedByDescending { it.rating }
         }
 
+    // ✅ Sửa: loadCatalog chạy trong coroutine
     private fun loadCatalog() {
-        val catalog = searchRepository.getAllResults()
-        val maxPrice = catalog.maxOfOrNull { it.price }?.coerceAtLeast(0L) ?: 0L
-        _uiState.update {
-            it.copy(
-                allResults = catalog,
-                displayedResults = catalog,
-                filterMaxPrice = maxPrice.coerceAtLeast(1_000_000L),
-                filterPriceUpper = maxPrice.coerceAtLeast(1_000_000L),
-            )
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+                val catalog = searchRepository.getAllResults()
+                val maxPrice = catalog.maxOfOrNull { it.price }?.coerceAtLeast(0L) ?: 0L
+                _uiState.update {
+                    it.copy(
+                        allResults = catalog,
+                        displayedResults = catalog,
+                        filterMaxPrice = maxPrice.coerceAtLeast(1_000_000L),
+                        filterPriceUpper = maxPrice.coerceAtLeast(1_000_000L),
+                        isLoading = false,
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = e.message ?: "Không thể tải dữ liệu",
+                    )
+                }
+            }
         }
     }
 }

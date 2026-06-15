@@ -1,18 +1,21 @@
 package com.example.smartreview.data.lesson
 
 import com.example.smartreview.data.learning.LearningProgressServiceProvider
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Lesson completion facade — persists per authenticated uid via [LearningProgressService].
  */
 object LessonProgressStore {
 
-    fun markCompleted(lessonId: String) = runBlocking {
-        LearningProgressServiceProvider.default.markLessonCompleted(lessonId)
+    suspend fun markCompleted(lessonId: String) {
+        withContext(Dispatchers.IO) {
+            LearningProgressServiceProvider.default.markLessonCompleted(lessonId)
+        }
     }
 
-    fun isCompleted(lessonId: String): Boolean = runBlocking {
+    suspend fun isCompleted(lessonId: String): Boolean = withContext(Dispatchers.IO) {
         LearningProgressServiceProvider.default.isLessonCompleted(lessonId)
     }
 }

@@ -16,12 +16,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.example.smartreview.ui.navigation.FORGOT_PASSWORD_ROUTE
 import com.example.smartreview.ui.theme.*
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateSignUp: () -> Unit,
+    navController: NavController,  // ✅ Thêm NavController
     vm: AuthViewModel = viewModel(),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
@@ -90,15 +94,20 @@ fun LoginScreen(
                     isError = state.password.isNotEmpty() && state.password.length < AuthUiState.MIN_PASSWORD_LENGTH,
                 )
 
+                // ✅ Thêm nút "Quên mật khẩu" với navigation
                 Row(
                     horizontalArrangement = Arrangement.End,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(
-                        "Quên mật khẩu?",
-                        color = Primary,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
+                    TextButton(
+                        onClick = { navController.navigate(FORGOT_PASSWORD_ROUTE) }  // ✅ Sử dụng constant
+                    ) {
+                        Text(
+                            "Quên mật khẩu?",
+                            color = Primary,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
 
                 state.error?.let { err -> AuthErrorBanner(err) }
@@ -150,7 +159,11 @@ fun LoginScreen(
 @Preview(showBackground = true, backgroundColor = 0xFF1C1B1F, widthDp = 390, heightDp = 844)
 @Composable
 private fun LoginPreview() {
-    com.example.smartreview.ui.theme.SmartReviewTheme {
-        LoginScreen(onLoginSuccess = {}, onNavigateSignUp = {})
+    SmartReviewTheme {
+        LoginScreen(
+            onLoginSuccess = {},
+            onNavigateSignUp = {},
+            navController = rememberNavController()
+        )
     }
 }

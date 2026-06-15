@@ -3,6 +3,7 @@ package com.example.smartreview.data.repository.firebase
 import com.example.smartreview.data.model.AuthResult
 import com.example.smartreview.data.model.AuthUser
 import com.example.smartreview.data.repository.AuthRepository
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -38,6 +39,38 @@ class FirebaseAuthRepository(
             AuthResult.Error(mapFirebaseError(e))
         }
     }
+
+    override suspend fun sendPasswordResetEmail(email: String): Boolean {
+        return try {
+            firebaseAuth.sendPasswordResetEmail(email.trim()).await()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    override suspend fun updatePassword(currentPassword: String, newPassword: String): AuthResult {
+        return try {
+            val user = firebaseAuth.currentUser
+            if (user == null) {
+                return AuthResult.Error("Vui lòng đăng nhập lại để đổi mật khẩu.")
+            }
+
+            // Re-authenticate user before changing password
+            val credential = EmailAuthProvider.getCredential(
+                user.email ?: return AuthResult.Error("Không tìm thấy email."),
+                currentPassword
+            )
+            user.reauthenticate(credential).await()
+
+            // Update password
+            user.updatePassword(newPassword).await()
+            AuthResult.Success(AuthUser(user.uid, user.email ?: ""))
+        } catch (e: Exception) {
+            AuthResult.Error(mapFirebaseError(e))
+        }
+    }
+
 
     override fun signOut() {
         firebaseAuth.signOut()

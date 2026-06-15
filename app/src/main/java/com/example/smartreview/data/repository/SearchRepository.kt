@@ -8,5 +8,5 @@ import com.example.smartreview.data.model.SearchResult
  */
 interface SearchRepository {
 
-    fun getAllResults(): List<SearchResult>
+    suspend fun getAllResults(): List<SearchResult>  // ✅ Thêm suspend
 }

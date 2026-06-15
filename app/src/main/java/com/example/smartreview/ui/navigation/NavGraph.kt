@@ -1,5 +1,7 @@
 package com.example.smartreview.ui.navigation
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -38,6 +40,7 @@ import com.example.smartreview.ui.screens.leaderboard.LEADERBOARD_ROUTE
 import com.example.smartreview.ui.screens.notifications.NotificationsScreen
 import com.example.smartreview.ui.screens.notifications.NOTIFICATIONS_ROUTE
 import com.example.smartreview.ui.auth.AuthRoutes
+import com.example.smartreview.ui.auth.ForgotPasswordScreen
 import com.example.smartreview.ui.auth.authGraph
 import com.example.smartreview.ui.onboarding.OnboardingRoutes
 import com.example.smartreview.ui.onboarding.onboardingGraph
@@ -51,19 +54,21 @@ sealed class Screen(val route: String) {
     object Search    : Screen(SEARCH_ROUTE)
     object Community : Screen(COMMUNITY_ROOMS_ROUTE)
     object Profile   : Screen("profile")
-    // REMOVED: Flashcard from here because it needs lessonId parameter
-    // object Flashcard : Screen("flashcard")
     object Pomodoro  : Screen("pomodoro")
 }
+
+// ✅ Animation constants
+private const val ANIMATION_DURATION = 300
+const val FORGOT_PASSWORD_ROUTE = "forgot_password"
 
 @Composable
 fun SmartReviewNavGraph(navController: NavHostController) {
     NavHost(
-        navController    = navController,
+        navController = navController,
         startDestination = Screen.Home.route,
     ) {
         onboardingGraph(
-            navController        = navController,
+            navController = navController,
             onOnboardingFinished = {
                 navController.navigate(Screen.Home.route) {
                     popUpTo(OnboardingRoutes.GRAPH) { inclusive = true }
@@ -75,19 +80,20 @@ fun SmartReviewNavGraph(navController: NavHostController) {
                 }
             },
         )
+
         authGraph(
-            navController  = navController,
+            navController = navController,
             onAuthComplete = {
                 navController.navigate(Screen.Home.route) {
                     popUpTo(AuthRoutes.GRAPH) { inclusive = true }
                 }
             },
         )
-        composable(Screen.Home.route)      { HomeScreen(navController) }
-        // REMOVED: Old flashcard route without lessonId
-        // composable(Screen.Flashcard.route) { FlashcardScreen(navController) }
-        composable(Screen.Pomodoro.route)  { PomodoroScreen(navController) }
-        composable(Screen.Profile.route)   { ProfileScreen(navController) }
+
+        // ✅ Main screens
+        composable(Screen.Home.route) { HomeScreen(navController) }
+        composable(Screen.Pomodoro.route) { PomodoroScreen(navController) }
+        composable(Screen.Profile.route) { ProfileScreen(navController) }
 
         composable(
             route = FLASHCARD_SUMMARY_ROUTE,
@@ -102,15 +108,18 @@ fun SmartReviewNavGraph(navController: NavHostController) {
         composable(COURSES_LIST_ROUTE) {
             CourseListScreen(navController = navController)
         }
+
         composable(
-            route     = COURSE_DETAIL_ROUTE,
+            route = COURSE_DETAIL_ROUTE,
             arguments = listOf(navArgument("courseId") { type = NavType.StringType })
         ) { backStackEntry ->
             CourseDetailScreen(
                 navController = navController,
-                courseId      = backStackEntry.arguments?.getString("courseId") ?: "",
+                courseId = backStackEntry.arguments?.getString("courseId") ?: "",
             )
         }
+
+        // ✅ Main lesson player route with courseId parameter
         composable(
             route = RouteHelpers.LESSON_PLAYER_ROUTE,
             arguments = listOf(
@@ -118,31 +127,68 @@ fun SmartReviewNavGraph(navController: NavHostController) {
                 navArgument("lessonId") { type = NavType.StringType },
             ),
         ) { backStackEntry ->
-            LessonVideoPlayerScreen(
-                navController = navController,
-                lessonId      = backStackEntry.arguments?.getString("lessonId") ?: "",
-                courseId      = backStackEntry.arguments?.getString("courseId"),
-            )
+            val lessonId = backStackEntry.arguments?.getString("lessonId") ?: ""
+            val courseId = backStackEntry.arguments?.getString("courseId")
+
+            if (lessonId.isBlank()) {
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    navController.popBackStack()
+                }
+                return@composable
+            }
+
+            androidx.compose.runtime.key(lessonId) {
+                LessonVideoPlayerScreen(
+                    navController = navController,
+                    lessonId = lessonId,
+                    courseId = courseId,
+                )
+            }
         }
-        // Legacy single-arg route (backwards compatibility)
+
+        // ✅ Legacy single-arg route (backwards compatibility)
         composable(
-            route     = LESSON_PLAYER_ROUTE,
+            route = LESSON_PLAYER_ROUTE,
             arguments = listOf(navArgument("lessonId") { type = NavType.StringType })
         ) { backStackEntry ->
-            LessonVideoPlayerScreen(
-                navController = navController,
-                lessonId      = backStackEntry.arguments?.getString("lessonId") ?: "",
-            )
+            val lessonId = backStackEntry.arguments?.getString("lessonId") ?: ""
+
+            if (lessonId.isBlank()) {
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    navController.popBackStack()
+                }
+                return@composable
+            }
+
+            androidx.compose.runtime.key(lessonId) {
+                LessonVideoPlayerScreen(
+                    navController = navController,
+                    lessonId = lessonId,
+                )
+            }
         }
+
         composable(
             route = LESSON_ROUTE,
             arguments = listOf(navArgument("lessonId") { type = NavType.StringType }),
         ) { backStackEntry ->
-            LessonScreen(
-                navController = navController,
-                lessonId = backStackEntry.arguments?.getString("lessonId").orEmpty(),
-            )
+            val lessonId = backStackEntry.arguments?.getString("lessonId").orEmpty()
+
+            if (lessonId.isBlank()) {
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    navController.popBackStack()
+                }
+                return@composable
+            }
+
+            androidx.compose.runtime.key(lessonId) {
+                LessonScreen(
+                    navController = navController,
+                    lessonId = lessonId,
+                )
+            }
         }
+
         composable(
             route = LESSON_SUMMARY_ROUTE,
             arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
@@ -152,15 +198,28 @@ fun SmartReviewNavGraph(navController: NavHostController) {
                 sessionId = backStackEntry.arguments?.getString("sessionId").orEmpty(),
             )
         }
+
         composable(
             route = QUIZ_ROUTE,
             arguments = listOf(navArgument("quizId") { type = NavType.StringType })
         ) { backStackEntry ->
-            QuizScreen(
-                navController = navController,
-                quizId = backStackEntry.arguments?.getString("quizId").orEmpty(),
-            )
+            val quizId = backStackEntry.arguments?.getString("quizId").orEmpty()
+
+            if (quizId.isBlank()) {
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    navController.popBackStack()
+                }
+                return@composable
+            }
+
+            androidx.compose.runtime.key(quizId) {
+                QuizScreen(
+                    navController = navController,
+                    quizId = quizId,
+                )
+            }
         }
+
         composable(
             route = QUIZ_SUMMARY_ROUTE,
             arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
@@ -170,6 +229,7 @@ fun SmartReviewNavGraph(navController: NavHostController) {
                 sessionId = backStackEntry.arguments?.getString("sessionId").orEmpty(),
             )
         }
+
         composable(SEARCH_ROUTE) {
             SearchScreen(navController = navController)
         }
@@ -178,22 +238,33 @@ fun SmartReviewNavGraph(navController: NavHostController) {
             route = READING_ROUTE,
             arguments = listOf(navArgument("lessonId") { type = NavType.StringType })
         ) { backStackEntry ->
-            ReadingScreen(
-                navController = navController,
-                lessonId = backStackEntry.arguments?.getString("lessonId") ?: return@composable
-            )
+            val lessonId = backStackEntry.arguments?.getString("lessonId") ?: return@composable
+
+            if (lessonId.isBlank()) return@composable
+
+            androidx.compose.runtime.key(lessonId) {
+                ReadingScreen(
+                    navController = navController,
+                    lessonId = lessonId,
+                )
+            }
         }
 
-        // NEW: Flashcard route with lessonId parameter
+        // ✅ Flashcard route with lessonId parameter
         composable(
             route = "flashcard/{lessonId}",
             arguments = listOf(navArgument("lessonId") { type = NavType.StringType })
         ) { backStackEntry ->
             val lessonId = backStackEntry.arguments?.getString("lessonId") ?: return@composable
-            FlashcardScreen(
-                navController = navController,
-                lessonId = lessonId
-            )
+
+            if (lessonId.isBlank()) return@composable
+
+            androidx.compose.runtime.key(lessonId) {
+                FlashcardScreen(
+                    navController = navController,
+                    lessonId = lessonId,
+                )
+            }
         }
 
         composable(COMMUNITY_ROOMS_ROUTE) {
@@ -201,28 +272,100 @@ fun SmartReviewNavGraph(navController: NavHostController) {
         }
 
         composable(
-            route     = CHAT_ROOM_ROUTE,
+            route = CHAT_ROOM_ROUTE,
             arguments = listOf(navArgument("roomId") { type = NavType.StringType })
         ) { backStackEntry ->
-            ChatRoomScreen(
-                navController = navController,
-                roomId        = backStackEntry.arguments?.getString("roomId") ?: "r1",
-            )
+            val roomId = backStackEntry.arguments?.getString("roomId") ?: "r1"
+
+            androidx.compose.runtime.key(roomId) {
+                ChatRoomScreen(
+                    navController = navController,
+                    roomId = roomId,
+                )
+            }
         }
 
         composable(LEADERBOARD_ROUTE) {
             LeaderboardScreen(navController = navController)
         }
+
         composable(NOTIFICATIONS_ROUTE) {
             NotificationsScreen(navController = navController)
         }
+
+        composable(FORGOT_PASSWORD_ROUTE) {
+            ForgotPasswordScreen(
+                onBack = { navController.popBackStack() },
+                onResetSent = {
+                    // Sau khi gửi email thành công, quay lại login
+                    navController.popBackStack()
+                }
+            )
+        }
     }
 }
+
+// ✅ Extension functions for navigation
 
 fun NavHostController.navigateSingleTop(route: String) {
     navigate(route) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
-        restoreState    = true
+        restoreState = true
     }
+}
+
+fun NavHostController.navigateWithReset(route: String, currentRoute: String) {
+    navigate(route) {
+        popUpTo(currentRoute) {
+            inclusive = true
+        }
+        launchSingleTop = false
+        restoreState = false
+    }
+}
+
+fun NavHostController.navigateLessonVideoWithReset(lessonId: String, courseId: String? = null) {
+    val route = if (!courseId.isNullOrBlank()) {
+        RouteHelpers.lessonPlayerRoute(courseId, lessonId)
+    } else {
+        "lesson_player/$lessonId"
+    }
+    navigate(route) {
+        launchSingleTop = false
+        restoreState = false
+    }
+}
+
+fun NavHostController.navigateAndClearStack(route: String) {
+    navigate(route) {
+        popUpTo(0) { inclusive = true }
+        launchSingleTop = false
+        restoreState = false
+    }
+}
+
+fun NavHostController.navigateSafe(route: String, onError: (() -> Unit)? = null) {
+    try {
+        currentDestination?.let { destination ->
+            if (destination.route != route) {
+                navigate(route) {
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            }
+        } ?: navigate(route)
+    } catch (e: IllegalArgumentException) {
+        android.util.Log.e("Navigation", "Error navigating to $route: ${e.message}")
+        onError?.invoke()
+    }
+}
+
+inline fun <reified T : Any> NavHostController.popWithResult(key: String, value: T) {
+    previousBackStackEntry?.savedStateHandle?.set(key, value)
+    popBackStack()
+}
+
+inline fun <reified T : Any> NavHostController.getResult(key: String): T? {
+    return currentBackStackEntry?.savedStateHandle?.get<T>(key)
 }

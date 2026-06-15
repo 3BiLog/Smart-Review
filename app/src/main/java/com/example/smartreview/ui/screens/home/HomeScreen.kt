@@ -19,9 +19,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.example.smartreview.data.model.LearningActivityType
 import com.example.smartreview.ui.components.SectionHeader
 import com.example.smartreview.ui.components.SmartReviewBottomBar
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateContinueLearning
 import com.example.smartreview.ui.navigation.Screen
 import com.example.smartreview.ui.screens.home.components.*
 import com.example.smartreview.ui.theme.*
@@ -34,6 +34,7 @@ fun HomeScreen(
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) vm.refreshResumeLearning()
@@ -48,8 +49,8 @@ fun HomeScreen(
         topBar = {
             HomeTopBar(
                 userName = state.userName,
-                xp = state.xp.toInt(),      // FIXED: Convert Long to Int
-                streak = state.streak.toInt(),  // FIXED: Convert Long to Int
+                xp = state.xp.toInt(),
+                streak = state.streak.toInt(),
             )
         },
     ) { padding ->
@@ -71,38 +72,44 @@ fun HomeScreen(
 
             Spacer(Modifier.height(24.dp))
 
+            // ✅ Phần "Tiếp tục học" - Hiển thị các course đang học dở
             SectionHeader(
                 title = "Tiếp tục học",
-                linkText = if (state.resumeLearning.isNotEmpty()) "Xem tất cả" else null,
+                linkText = if (state.inProgressCourses.isNotEmpty()) "Xem tất cả" else null,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
             Spacer(Modifier.height(12.dp))
-            if (state.resumeLearning.isNotEmpty()) {
+
+            if (state.inProgressCourses.isNotEmpty()) {
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(state.resumeLearning, key = { "${it.type}_${it.contentId}" }) { item ->
+                    items(state.inProgressCourses, key = { it.id }) { course ->
+                        // Tìm CourseCard tương ứng để lấy progress
+                        val cardData = state.continueCourses.find { it.id == course.id }
+                        val progress = cardData?.progress ?: 0f
+                        val timeLeft = cardData?.timeLeft ?: "Đang học"
+
                         HomeContinueCourseCard(
                             card = CourseCard(
-                                id = item.courseId ?: item.contentId,
-                                title = item.title,
-                                subtitle = item.subtitle,
-                                imageUrl = item.imageUrl,
-                                progress = item.progressPercent,
-                                timeLeft = when (item.type) {
-                                    LearningActivityType.LESSON -> "Bài học dở"
-                                    LearningActivityType.QUIZ -> "Quiz dở"
-                                    LearningActivityType.FLASHCARD -> "Flashcard dở"
-                                },
+                                id = course.id,
+                                title = course.title,
+                                subtitle = course.description.take(60),
+                                imageUrl = course.imageUrl,  // ✅ Đã sửa
+                                progress = progress,
+                                timeLeft = timeLeft,
                             ),
-                            onClick = { navController.navigate(item.route) },
+                            onClick = {
+                                val nextLessonId = cardData?.nextLessonId
+                                navController.navigateContinueLearning(course, nextLessonId)
+                            },
                         )
                     }
                 }
-            } else {
+            } else if (!state.isLoading) {
                 Text(
-                    "Chưa có bài học đang dở. Bắt đầu một khóa học để thấy tiến độ tại đây.",
+                    "Chưa có khóa học đang học. Bắt đầu một khóa học để thấy tiến độ tại đây.",
                     style = MaterialTheme.typography.bodySmall,
                     color = OnSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -116,6 +123,7 @@ fun HomeScreen(
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
             Spacer(Modifier.height(12.dp))
+
             state.recommended.forEach { item ->
                 HomeRecommendedItem(
                     item = item,

@@ -3,6 +3,7 @@ package com.example.smartreview.ui.navigation
 import androidx.navigation.NavHostController
 import com.example.smartreview.data.model.Course
 import com.example.smartreview.data.model.LessonItem
+import com.example.smartreview.data.model.LessonType
 import com.example.smartreview.ui.screens.coursedetail.courseDetailRoute
 import com.example.smartreview.ui.screens.lesson.lessonContentRoute
 import com.example.smartreview.ui.screens.lessonplayer.lessonPlayerRoute
@@ -49,14 +50,16 @@ object LearningFlowNavigation {
             val route = RouteHelpers.lessonPlayerRoute(courseId, lessonId)
             android.util.Log.d("LearningFlowNavigation", "navigateLessonVideo: courseId=$courseId, lessonId=$lessonId, route=$route")
             navigate(route) {
-                launchSingleTop = true
+                launchSingleTop = false
+                restoreState = false
             }
             return
         }
         val route = lessonVideoRoute(lessonId)
         android.util.Log.d("LearningFlowNavigation", "navigateLessonVideo (no course): lessonId=$lessonId, route=$route")
         navigate(route) {
-            launchSingleTop = true
+            launchSingleTop = false
+            restoreState = false
         }
     }
 
@@ -68,6 +71,7 @@ object LearningFlowNavigation {
             launchSingleTop = true
         }
     }
+
     fun NavHostController.navigateLessonContent(lessonId: String) {
         navigate(lessonContentRoute(lessonId)) {
             launchSingleTop = true
@@ -77,17 +81,16 @@ object LearningFlowNavigation {
     /** Hero: first unlocked lesson in the course — route by lesson type. */
     fun NavHostController.navigateHeroPlay(course: Course) {
         val lesson = resolveFirstUnlockedLesson(course) ?: return
-        // include course context for canonical resolution
         when (lesson.lessonType) {
-            com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> navigateLessonVideo(lesson.id, courseId = course.id)
-            com.example.smartreview.data.model.LessonType.READING -> navigateLessonContent(lesson.id)
-            com.example.smartreview.data.model.LessonType.QUIZ -> navigate(com.example.smartreview.ui.screens.quiz.quizRoute(lesson.quizId ?: lesson.id)) { launchSingleTop = true }
-            com.example.smartreview.data.model.LessonType.FLASHCARD -> {
-                navigate("flashcard/${lesson.id}") { launchSingleTop = true }  // Thay vì Screen.Flashcard.route
+            LessonType.VIDEO, LessonType.UNKNOWN -> navigateLessonVideo(lesson.id, courseId = course.id)
+            LessonType.READING -> navigateLessonContent(lesson.id)
+            LessonType.QUIZ -> navigate(com.example.smartreview.ui.screens.quiz.quizRoute(lesson.quizId ?: lesson.id)) { launchSingleTop = true }
+            LessonType.FLASHCARD -> {
+                navigate("flashcard/${lesson.id}") { launchSingleTop = true }
             }
         }
     }
- 
+
     /**
      * Start / Continue: next incomplete unlocked lesson (or preferred), route by lesson type.
      */
@@ -97,12 +100,38 @@ object LearningFlowNavigation {
     ) {
         val lesson = resolveNextUnlockedLesson(course, preferredLessonId) ?: return
         when (lesson.lessonType) {
-            com.example.smartreview.data.model.LessonType.VIDEO, com.example.smartreview.data.model.LessonType.UNKNOWN -> navigateLessonVideo(lesson.id, courseId = course.id)
-            com.example.smartreview.data.model.LessonType.READING -> navigateLessonContent(lesson.id)
-            com.example.smartreview.data.model.LessonType.QUIZ -> navigate(com.example.smartreview.ui.screens.quiz.quizRoute(lesson.quizId ?: lesson.id)) { launchSingleTop = true }
-            com.example.smartreview.data.model.LessonType.FLASHCARD -> {
-                navigate("flashcard/${lesson.id}") { launchSingleTop = true }  // Thay vì Screen.Flashcard.route
+            LessonType.VIDEO, LessonType.UNKNOWN -> navigateLessonVideo(lesson.id, courseId = course.id)
+            LessonType.READING -> navigateLessonContent(lesson.id)
+            LessonType.QUIZ -> navigate(com.example.smartreview.ui.screens.quiz.quizRoute(lesson.quizId ?: lesson.id)) { launchSingleTop = true }
+            LessonType.FLASHCARD -> {
+                navigate("flashcard/${lesson.id}") { launchSingleTop = true }
             }
+        }
+    }
+
+    /**
+     * ✅ Navigate to the next uncompleted lesson in course (for Continue Learning)
+     * @param course The course to continue
+     * @param nextLessonId The ID of the next lesson to complete (can be null if course is completed)
+     */
+    fun NavHostController.navigateContinueLearning(course: Course, nextLessonId: String?) {
+        if (nextLessonId != null) {
+            android.util.Log.d("LearningFlowNavigation", "navigateContinueLearning: course=${course.title}, nextLessonId=$nextLessonId")
+            navigateLessonVideo(nextLessonId, courseId = course.id)
+        } else {
+            // Course is completed, navigate to course detail
+            android.util.Log.d("LearningFlowNavigation", "navigateContinueLearning: course completed, navigate to detail")
+            navigate(courseDetailRoute(course.id))
+        }
+    }
+
+    /**
+     * ✅ Navigate to course detail screen
+     */
+    fun NavHostController.navigateToCourseDetail(courseId: String) {
+        navigate(courseDetailRoute(courseId)) {
+            launchSingleTop = true
+            restoreState = true
         }
     }
 
@@ -118,6 +147,45 @@ object LearningFlowNavigation {
     }
 
     fun NavHostController.navigateToHomeFromStudy() {
+        popBackStack(Screen.Home.route, inclusive = false)
+    }
+
+    /**
+     * ✅ Navigate to a specific lesson by ID with optional course context
+     */
+    fun NavHostController.navigateToLesson(lessonId: String, courseId: String? = null) {
+        val lessonType = getLessonType(lessonId)
+        when (lessonType) {
+            LessonType.VIDEO, LessonType.UNKNOWN -> navigateLessonVideo(lessonId, courseId)
+            LessonType.READING -> navigateLessonContent(lessonId)
+            LessonType.QUIZ -> navigate(com.example.smartreview.ui.screens.quiz.quizRoute(lessonId)) { launchSingleTop = true }
+            LessonType.FLASHCARD -> navigate("flashcard/${lessonId}") { launchSingleTop = true }
+        }
+    }
+
+    /**
+     * ✅ Helper function to get lesson type (placeholder - should be implemented with actual data)
+     */
+    private fun getLessonType(lessonId: String): LessonType {
+        // This should be implemented to fetch from repository
+        // For now, default to VIDEO
+        return LessonType.VIDEO
+    }
+
+    /**
+     * ✅ Navigate and clear back stack (useful for logout or reset)
+     */
+    fun NavHostController.navigateAndClear(route: String) {
+        navigate(route) {
+            popUpTo(0) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
+
+    /**
+     * ✅ Pop back to home screen
+     */
+    fun NavHostController.popToHome() {
         popBackStack(Screen.Home.route, inclusive = false)
     }
 }

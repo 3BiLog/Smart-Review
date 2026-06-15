@@ -9,26 +9,25 @@ import com.example.smartreview.data.remote.firestore.CourseFirestorePaths
 import com.example.smartreview.data.repository.LessonRepository
 import com.example.smartreview.data.repository.CourseCache
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.android.gms.tasks.Tasks
+import kotlinx.coroutines.tasks.await
 
 /**
  * Firestore-backed LessonRepository implemented using existing DA3 schema.
- * This implementation performs a best-effort lookup by scanning published
- * courses and matching embedded lesson ids. It populates CourseCache so
- * repeated lookups are cheaper.
  */
 class FirestoreLessonRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) : LessonRepository {
 
-    override fun getLesson(lessonId: String): LessonContent? {
+    // ✅ Sửa thành suspend function, dùng await() thay vì Tasks.await
+    override suspend fun getLesson(lessonId: String): LessonContent? {
         if (lessonId.isBlank()) return null
 
         return try {
-            val task = firestore.collection(CourseFirestorePaths.COURSES)
+            val snapshot = firestore.collection(CourseFirestorePaths.COURSES)
                 .whereEqualTo(CourseFirestorePaths.Fields.STATUS, "published")
                 .get()
-            val snapshot = Tasks.await(task)
+                .await()  // ✅ suspend await
+
             for (doc in snapshot.documents) {
                 val course = CourseFirestoreMapper.toCourse(doc.id, doc.data)
                 if (course != null) {
@@ -48,19 +47,22 @@ class FirestoreLessonRepository(
         }
     }
 
-    override fun getLessonsForCourse(courseId: String): List<LessonContent> {
+    // ✅ Sửa thành suspend function
+    override suspend fun getLessonsForCourse(courseId: String): List<LessonContent> {
         if (courseId.isBlank()) return emptyList()
+
         val cachedCourse = CourseCache.get(courseId)
         val course = if (cachedCourse != null) cachedCourse else try {
-            val task = firestore.collection(CourseFirestorePaths.COURSES)
+            val doc = firestore.collection(CourseFirestorePaths.COURSES)
                 .document(courseId)
                 .get()
-            val doc = Tasks.await(task)
+                .await()  // ✅ suspend await
             if (!doc.exists()) return emptyList()
             CourseFirestoreMapper.toCourse(doc.id, doc.data)
         } catch (e: Exception) {
             null
         }
+
         if (course == null) return emptyList()
         CourseCache.put(course)
         return course.modules.flatMapIndexed { moduleIndex, module ->
@@ -70,7 +72,7 @@ class FirestoreLessonRepository(
         }
     }
 
-    // Helpers
+    // Helpers (không cần suspend)
     private fun lessonItemToContent(lesson: LessonItem, courseId: String?, moduleId: String? = null): LessonContent {
         return LessonContent(
             id = lesson.id,
@@ -109,6 +111,4 @@ class FirestoreLessonRepository(
         }
         return null
     }
-
 }
-

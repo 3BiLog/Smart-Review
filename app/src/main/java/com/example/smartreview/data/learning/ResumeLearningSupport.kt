@@ -8,7 +8,8 @@ import com.example.smartreview.data.model.UserLearningProgress
 import com.example.smartreview.data.repository.FlashcardRepositoryProvider
 import com.example.smartreview.data.repository.LessonRepositoryProvider
 import com.example.smartreview.data.repository.QuizRepositoryProvider
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Validates in-progress snapshots and drops stale entries (completed / invalid).
@@ -28,7 +29,7 @@ object ResumeLearningSupport {
         )
     }
 
-    fun sanitize(progress: UserLearningProgress): Pair<UserLearningProgress, List<String>> {
+    suspend fun sanitize(progress: UserLearningProgress): Pair<UserLearningProgress, List<String>> {
         val filteredReasons = mutableListOf<String>()
         var sanitized = progress
 
@@ -56,23 +57,27 @@ object ResumeLearningSupport {
         return sanitized to filteredReasons
     }
 
-    // FIXED: Use runBlocking for Flashcard repository
-    fun isFlashcardSnapshotResumable(snapshot: FlashcardProgressSnapshot): Boolean {
+    // ✅ Sửa thành suspend function, dùng withContext(Dispatchers.IO)
+    suspend fun isFlashcardSnapshotResumable(snapshot: FlashcardProgressSnapshot): Boolean {
         if (snapshot.deckId.isBlank()) return false
-        val deck = runBlocking { FlashcardRepositoryProvider.default.getDeck(snapshot.deckId) } ?: return false
+        val deck = withContext(Dispatchers.IO) {
+            FlashcardRepositoryProvider.default.getDeck(snapshot.deckId)
+        } ?: return false
         val total = deck.cards.size
         if (total == 0) return false
         val studied = snapshot.knownCount + snapshot.reviewCount
         return studied < total
     }
 
-    fun isLessonSnapshotResumable(
+    suspend fun isLessonSnapshotResumable(
         snapshot: LessonProgressSnapshot,
         progress: UserLearningProgress,
     ): Boolean {
         if (snapshot.lessonId.isBlank()) return false
         if (snapshot.lessonId in progress.completedLessonIds) return false
-        val lesson = LessonRepositoryProvider.default.getLesson(snapshot.lessonId) ?: return false
+        val lesson = withContext(Dispatchers.IO) {
+            LessonRepositoryProvider.default.getLesson(snapshot.lessonId)
+        } ?: return false
         val policy = LearningProgressionPolicy()
         val policySnapshot = LearningProgressionPolicy.ProgressSnapshot(
             completedLessonIds = progress.completedLessonIds,
@@ -82,13 +87,15 @@ object ResumeLearningSupport {
         return true
     }
 
-    fun isQuizSnapshotResumable(
+    suspend fun isQuizSnapshotResumable(
         snapshot: QuizProgressSnapshot,
         progress: UserLearningProgress,
     ): Boolean {
         if (snapshot.quizId.isBlank()) return false
         if (snapshot.quizId in progress.completedQuizIds) return false
-        val quiz = runBlocking { QuizRepositoryProvider.default.getQuiz(snapshot.quizId) } ?: return false
+        val quiz = withContext(Dispatchers.IO) {
+            QuizRepositoryProvider.default.getQuiz(snapshot.quizId)
+        } ?: return false
         val lessonId = quiz.lessonId?.takeIf { it.isNotBlank() }
         if (lessonId != null) {
             if (lessonId in progress.completedLessonIds) return false

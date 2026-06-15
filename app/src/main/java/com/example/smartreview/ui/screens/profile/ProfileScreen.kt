@@ -22,7 +22,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.smartreview.ui.auth.AuthRoutes
 import com.example.smartreview.ui.components.SmartReviewBottomBar
+import com.example.smartreview.ui.screens.profile.components.ChangePasswordDialog
 import com.example.smartreview.ui.theme.*
+import kotlinx.coroutines.delay
 
 @Composable
 fun ProfileScreen(
@@ -66,8 +68,8 @@ fun ProfileScreen(
                 displayName = state.displayName,
                 levelLabel = state.levelLabel,
                 email = if (state.isAuthenticated) state.email else "",
-                streak = state.streak.toInt(),   // FIXED: Convert Long to Int
-                xp = state.xp.toInt(),           // FIXED: Convert Long to Int
+                streak = state.streak.toInt(),
+                xp = state.xp.toInt(),
                 isLoading = state.isLoadingProfile,
                 isAuthenticated = state.isAuthenticated,
                 isEditMode = state.isEditMode,
@@ -185,7 +187,7 @@ fun ProfileScreen(
 
             ProfileSectionCard(title = "Bảo mật") {
                 OutlinedButton(
-                    onClick = {},
+                    onClick = { vm.showChangePasswordDialog() },
                     shape = RoundedCornerShape(16.dp),
                     border = BorderStroke(2.dp, Primary),
                     modifier = Modifier.fillMaxWidth(),
@@ -216,6 +218,26 @@ fun ProfileScreen(
             }
 
             Spacer(Modifier.height(8.dp))
+        }
+    }
+
+    // ✅ Change Password Dialog
+    if (state.showChangePasswordDialog) {
+        ChangePasswordDialog(
+            onDismiss = { vm.dismissChangePasswordDialog() },
+            onConfirm = { currentPassword, newPassword ->
+                vm.changePassword(currentPassword, newPassword)
+            },
+            isLoading = state.isChangingPassword,
+            errorMessage = state.passwordChangeError
+        )
+    }
+
+    // ✅ Auto-clear success message after delay
+    if (state.passwordChangeSuccess) {
+        LaunchedEffect(Unit) {
+            delay(3000)
+            vm.clearPasswordChangeSuccess()
         }
     }
 }

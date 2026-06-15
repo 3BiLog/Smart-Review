@@ -13,6 +13,10 @@ interface AuthRepository {
 
     suspend fun registerWithEmail(email: String, password: String): AuthResult
 
+    suspend fun sendPasswordResetEmail(email: String): Boolean
+
+    suspend fun updatePassword(currentPassword: String, newPassword: String): AuthResult
+
     fun signOut()
 
     fun getCurrentUser(): AuthUser?

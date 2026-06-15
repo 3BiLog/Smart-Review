@@ -3,6 +3,7 @@ package com.example.smartreview.ui.screens.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.smartreview.data.auth.AuthSession
+import com.example.smartreview.data.model.AuthResult
 import com.example.smartreview.data.model.UserProfile
 import com.example.smartreview.data.repository.AuthRepository
 import com.example.smartreview.data.repository.AuthRepositoryProvider
@@ -28,8 +29,8 @@ data class ProfileUiState(
     val dailyGoalMinutes: Int = 30,
     val darkModeEnabled: Boolean = true,
     val notificationsOn: Boolean = true,
-    val streak: Long = 0,      // FIXED: Changed to Long to match UserProfile
-    val xp: Long = 0,          // FIXED: Changed to Long to match UserProfile
+    val streak: Long = 0,
+    val xp: Long = 0,
     val isLoadingProfile: Boolean = false,
     val isSavingProfile: Boolean = false,
     val isAuthenticated: Boolean = false,
@@ -38,6 +39,12 @@ data class ProfileUiState(
     /** Snapshot for cancel — populated when profile loads from Firestore. */
     val savedFullName: String = "",
     val savedPhone: String = "",
+
+    // ✅ Change password states
+    val showChangePasswordDialog: Boolean = false,
+    val isChangingPassword: Boolean = false,
+    val passwordChangeError: String? = null,
+    val passwordChangeSuccess: Boolean = false,
 )
 
 class ProfileViewModel(
@@ -150,6 +157,60 @@ class ProfileViewModel(
         onLoggedOut()
     }
 
+    // ✅ Change Password Functions
+    fun showChangePasswordDialog() {
+        _uiState.update {
+            it.copy(
+                showChangePasswordDialog = true,
+                passwordChangeError = null,
+                passwordChangeSuccess = false
+            )
+        }
+    }
+
+    fun dismissChangePasswordDialog() {
+        _uiState.update {
+            it.copy(
+                showChangePasswordDialog = false,
+                isChangingPassword = false,
+                passwordChangeError = null
+            )
+        }
+    }
+
+    fun changePassword(currentPassword: String, newPassword: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isChangingPassword = true, passwordChangeError = null) }
+
+            val result = authRepository.updatePassword(currentPassword, newPassword)
+
+            when (result) {
+                is AuthResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            showChangePasswordDialog = false,
+                            isChangingPassword = false,
+                            passwordChangeSuccess = true,
+                            profileMessage = "Đổi mật khẩu thành công! Vui lòng đăng nhập lại."
+                        )
+                    }
+                }
+                is AuthResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isChangingPassword = false,
+                            passwordChangeError = result.message
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun clearPasswordChangeSuccess() {
+        _uiState.update { it.copy(passwordChangeSuccess = false) }
+    }
+
     private fun showMessage(message: String) {
         _uiState.update { it.copy(profileMessage = message) }
     }
@@ -173,12 +234,12 @@ class ProfileViewModel(
     private fun ProfileUiState.applyUserProfile(profile: UserProfile): ProfileUiState = copy(
         avatarUrl = profile.avatarUrl ?: this.avatarUrl,
         displayName = profile.displayName,
-        levelLabel = levelLabelFromXp(profile.xp),  // FIXED: Pass Long
+        levelLabel = levelLabelFromXp(profile.xp),
         fullName = profile.displayName,
         email = profile.email,
         phone = profile.phone,
-        streak = profile.streak,   // FIXED: Long -> Long
-        xp = profile.xp,           // FIXED: Long -> Long
+        streak = profile.streak,
+        xp = profile.xp,
         isLoadingProfile = false,
         isSavingProfile = false,
         isEditMode = false,
@@ -187,7 +248,6 @@ class ProfileViewModel(
         isAuthenticated = true,
     )
 
-    // FIXED: Accept Long parameter
     private fun levelLabelFromXp(xp: Long): String {
         val level = (xp / 100).toInt().coerceAtLeast(1)
         return "Cấp $level · Người học"

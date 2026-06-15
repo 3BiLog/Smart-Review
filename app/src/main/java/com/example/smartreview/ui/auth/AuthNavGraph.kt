@@ -8,6 +8,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navigation
+import com.example.smartreview.ui.navigation.FORGOT_PASSWORD_ROUTE
 
 object AuthRoutes {
     const val GRAPH = "auth_graph"
@@ -63,9 +64,11 @@ fun NavGraphBuilder.authGraph(
             LoginScreen(
                 onLoginSuccess = onAuthComplete,
                 onNavigateSignUp = { navController.navigate(AuthRoutes.SIGN_UP) },
+                navController = navController,  // ✅ Thêm navController
                 vm = authVm,
             )
         }
+
         composable(AuthRoutes.SIGN_UP) { backStackEntry ->
             val authVm = rememberAuthViewModel(navController, backStackEntry)
             SignUpScreen(
@@ -78,9 +81,22 @@ fun NavGraphBuilder.authGraph(
                 vm = authVm,
             )
         }
+
         composable(AuthRoutes.SUCCESS) { backStackEntry ->
             val authVm = rememberAuthViewModel(navController, backStackEntry)
             AuthSuccessScreen(vm = authVm, onDone = onAuthComplete)
+        }
+
+        // ✅ Thêm route cho ForgotPassword
+        composable(FORGOT_PASSWORD_ROUTE) { backStackEntry ->
+            val forgotVm: ForgotPasswordViewModel = viewModel(backStackEntry)
+            ForgotPasswordScreen(
+                onBack = { navController.popBackStack() },
+                onResetSent = {
+                    navController.popBackStack()
+                },
+                vm = forgotVm
+            )
         }
     }
 }

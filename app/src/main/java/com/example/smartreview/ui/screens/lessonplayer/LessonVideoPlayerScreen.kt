@@ -30,151 +30,250 @@ import com.example.smartreview.data.model.LessonType
 import com.example.smartreview.ui.components.YoutubeLessonPlayer
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonContent
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
+import com.example.smartreview.ui.navigation.RouteHelpers
 import com.example.smartreview.ui.theme.*
 
 // ─── Route ───────────────────────────────────────────────────────────────────
-const val LESSON_PLAYER_ROUTE    = "lesson_player/{lessonId}"
+const val LESSON_PLAYER_ROUTE = "lesson_player/{lessonId}"
 fun lessonPlayerRoute(lessonId: String) = "lesson_player/$lessonId"
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 @Composable
 fun LessonVideoPlayerScreen(
     navController: NavHostController,
-    lessonId:      String,
-    courseId:      String? = null,
+    lessonId: String,
+    courseId: String? = null,
     vm: LessonPlayerViewModel = viewModel(
         factory = LessonPlayerViewModel.provideFactory(lessonId, courseId)
     ),
 ) {
-    val state  by vm.uiState.collectAsStateWithLifecycle()
-    val lesson  = state.currentLesson ?: return
+    val state by vm.uiState.collectAsStateWithLifecycle()
+    val lesson = state.currentLesson ?: return
 
-    android.util.Log.d("LessonVideoPlayerScreen", "Rendered: lessonId=$lessonId, courseId=$courseId, current=${lesson.id}, type=${lesson.lessonType}")
+    DisposableEffect(lessonId) {
+        android.util.Log.d("LessonVideoPlayerScreen", "Screen CREATED for lesson: $lessonId")
+        onDispose {
+            android.util.Log.d("LessonVideoPlayerScreen", "Screen DESTROYED for lesson: $lessonId")
+        }
+    }
 
-    Scaffold(
-        containerColor = Background,
-        topBar         = {
-            LessonPlayerTopBar(
-                onBack = { navController.popBackStack() },
-            )
-        },
-    ) { padding ->
-        LazyColumn(
-            modifier       = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(bottom = 24.dp),
-        ) {
+    // ✅ Dialog xác nhận hoàn thành
+    if (state.showCompleteDialog) {
+        val isFromUpNext = state.selectedNextLesson != null
+        val targetLesson = state.selectedNextLesson ?: state.upNextLessons.firstOrNull()
 
-            // ── 1. Video player ───────────────────────────────────────────
-            item {
-                val hasBlocks = state.hasContentBlocks
-                val nextLesson = state.upNextLessons.firstOrNull()
-                val ctaText = if (hasBlocks) "Tiếp tục — Tóm tắt bài học" else (if (nextLesson != null) "Bài học tiếp theo" else "Hoàn thành bài học")
-
-                VideoPlayerArea(
-                    videoId = state.youtubeVideoId,
-                    thumbnailUrl = lesson.thumbnailUrl,
-                    videoError = state.videoError,
-                    ctaText = ctaText,
-                    onContinue = {
-                        android.util.Log.d("LessonVideoPlayerScreen", ">>> onContinue called, hasBlocks=$hasBlocks, nextLesson=$nextLesson")
-
-                        if (hasBlocks) {
-                            navController.navigateLessonContent(lesson.id)
-                        } else {
-                            if (nextLesson == null) {
-                                android.util.Log.d("LessonVideoPlayerScreen", ">>> No next lesson, popping back")
-                                navController.popBackStack()
-                            } else {
-                                android.util.Log.d("LessonVideoPlayerScreen", ">>> Next lesson type: ${nextLesson.lessonType}, id: ${nextLesson.id}")
-                                when (nextLesson.lessonType) {
-                                    LessonType.VIDEO, LessonType.UNKNOWN -> {
-                                        android.util.Log.d("LessonVideoPlayerScreen", ">>> Navigating to VIDEO: ${nextLesson.id}")
-                                        navController.navigateLessonVideo(nextLesson.id, courseId = courseId)
-                                    }
-                                    LessonType.READING -> {
-                                        android.util.Log.d("LessonVideoPlayerScreen", ">>> Navigating to READING: ${nextLesson.id}")
-                                        navController.navigateLessonContent(nextLesson.id)
-                                    }
-                                    LessonType.QUIZ -> {
-                                        val quizIdToUse = nextLesson.quizId?.takeIf { it.isNotBlank() } ?: nextLesson.id
-                                        android.util.Log.d("LessonVideoPlayerScreen", ">>> Navigating to QUIZ: lessonId=${nextLesson.id}, quizId=$quizIdToUse")
-                                        navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(quizIdToUse)) {
-                                            launchSingleTop = true
-                                        }
-                                    }
-                                    LessonType.FLASHCARD -> {
-                                        android.util.Log.d("LessonVideoPlayerScreen", ">>> Navigating to FLASHCARD: ${nextLesson.id}")
-                                        navController.navigate("flashcard/${nextLesson.id}") { launchSingleTop = true }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                )
-            }
-
-            // ── 2. Lesson info ────────────────────────────────────────────
-            item {
-                LessonInfoCard(
-                    lesson = lesson,
-                    subtitle = state.lessonSubtitle,
-                    isSaved = state.isSaved,
-                    onSave = { vm.toggleSave() },
-                    modifier = Modifier.padding(16.dp),
-                )
-            }
-
-            // ── 3. Tags ───────────────────────────────────────────────────
-            item {
-                LessonTagsRow(
-                    tags     = listOf("#Async", "#Performance", "#Advanced"),
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
-
-            // ── 4. Up Next header ─────────────────────────────────────────
-            item {
+        AlertDialog(
+            onDismissRequest = {
+                vm.dismissCompleteDialog()
+                vm.clearSelectedNextLesson()
+            },
+            title = {
                 Text(
-                    "Up Next",
-                    style      = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color      = OnSurface,
-                    modifier   = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    "Hoàn thành bài học?",
+                    style = MaterialTheme.typography.titleMedium
                 )
-            }
-
-            // ── 5. Playlist ───────────────────────────────────────────────
-            items(state.upNextLessons, key = { it.id }) { playlistItem ->
-                PlaylistItem(
-                    item     = playlistItem,
-                    isCurrent = playlistItem.isCurrentlyPlaying,
-                    onClick  = {
-                        when (playlistItem.lessonType) {
-                            LessonType.VIDEO, LessonType.UNKNOWN -> {
-                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "VIDEO: item=${playlistItem.id}, courseId=$courseId")
-                                navController.navigateLessonVideo(playlistItem.id, courseId = courseId)
-                            }
-                            LessonType.READING -> {
-                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "READING: item=${playlistItem.id}")
-                                navController.navigateLessonContent(playlistItem.id)
-                            }
-                            LessonType.QUIZ -> {
-                                val quizIdToUse = playlistItem.quizId?.takeIf { it.isNotBlank() } ?: playlistItem.id
-                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "QUIZ: item=${playlistItem.id}, quizId=$quizIdToUse")
-                                navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(quizIdToUse)) {
-                                    launchSingleTop = true
+            },
+            text = {
+                Column {
+                    Text("Bạn đã xem xong bài học này chưa?")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Hoàn thành bài học sẽ giúp bạn nhận được XP và theo dõi tiến độ.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = OnSurfaceVariant
+                    )
+                    if (isFromUpNext && targetLesson != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Sau đó sẽ chuyển đến: ${targetLesson.title}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Primary
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (isFromUpNext && targetLesson != null) {
+                            // ✅ Từ Up Next - chuyển đến lesson đã chọn
+                            vm.completeLessonAndNavigateToSelected { selectedLesson ->
+                                if (selectedLesson != null) {
+                                    navigateToLesson(navController, selectedLesson, courseId, lesson.id)
+                                } else {
+                                    navController.popBackStack()
                                 }
                             }
-                            LessonType.FLASHCARD -> {
-                                android.util.Log.d("LessonVideoPlayerScreen.UpNext", "FLASHCARD: item=${playlistItem.id}")
-                                navController.navigate("flashcard/${playlistItem.id}") { launchSingleTop = true }
+                        } else {
+                            // ✅ Từ nút "Bài học tiếp theo" - chuyển đến lesson mặc định
+                            vm.completeLessonAndContinue { nextLessonId ->
+                                if (nextLessonId != null) {
+                                    val targetRoute = if (courseId.isNullOrBlank()) {
+                                        lessonPlayerRoute(nextLessonId)
+                                    } else {
+                                        RouteHelpers.lessonPlayerRoute(courseId, nextLessonId)
+                                    }
+                                    navController.navigate(targetRoute) {
+                                        val currentRoute = if (courseId.isNullOrBlank()) {
+                                            lessonPlayerRoute(lesson.id)
+                                        } else {
+                                            RouteHelpers.lessonPlayerRoute(courseId, lesson.id)
+                                        }
+                                        popUpTo(currentRoute) { inclusive = true }
+                                        launchSingleTop = false
+                                        restoreState = false
+                                    }
+                                } else {
+                                    navController.popBackStack()
+                                }
                             }
                         }
                     },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    enabled = !state.isCompleting,
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                ) {
+                    if (state.isCompleting) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+                    } else {
+                        Text("Đã hoàn thành")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    vm.dismissCompleteDialog()
+                    vm.clearSelectedNextLesson()
+                }) {
+                    Text("Chưa xong")
+                }
+            }
+        )
+    }
+
+    key(lessonId) {
+        Scaffold(
+            containerColor = Background,
+            topBar = {
+                LessonPlayerTopBar(
+                    onBack = { navController.popBackStack() },
                 )
+            },
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(bottom = 24.dp),
+            ) {
+                item {
+                    val hasBlocks = state.hasContentBlocks
+                    val nextLesson = state.upNextLessons.firstOrNull()
+                    val ctaText = if (hasBlocks) "Tiếp tục — Tóm tắt bài học" else (if (nextLesson != null) "Bài học tiếp theo" else "Hoàn thành khóa học")
+
+                    VideoPlayerArea(
+                        videoId = state.youtubeVideoId,
+                        thumbnailUrl = lesson.thumbnailUrl,
+                        videoError = state.videoError,
+                        ctaText = ctaText,
+                        onContinue = {
+                            if (hasBlocks) {
+                                navController.navigateLessonContent(lesson.id)
+                            } else {
+                                // ✅ Hiển thị dialog xác nhận thay vì chuyển thẳng
+                                vm.showCompleteConfirmation()
+                                vm.clearSelectedNextLesson()
+                            }
+                        },
+                    )
+                }
+
+                item {
+                    LessonInfoCard(
+                        lesson = lesson,
+                        subtitle = state.lessonSubtitle,
+                        isSaved = state.isSaved,
+                        onSave = { vm.toggleSave() },
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+
+                item {
+                    LessonTagsRow(
+                        tags = listOf("#Async", "#Performance", "#Advanced"),
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
+
+                item {
+                    Text(
+                        "Up Next",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = OnSurface,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
+
+                // ✅ Sửa Up Next items - hiển thị dialog khi click
+                items(state.upNextLessons, key = { it.id }) { playlistItem ->
+                    PlaylistItem(
+                        item = playlistItem,
+                        isCurrent = playlistItem.isCurrentlyPlaying,
+                        onClick = {
+                            // ✅ Kiểm tra nếu đang ở lesson hiện tại thì không làm gì
+                            if (playlistItem.id == lesson.id) return@PlaylistItem
+
+                            // ✅ Hiển thị dialog xác nhận trước khi chuyển
+                            vm.setSelectedNextLesson(playlistItem)
+                            vm.showCompleteConfirmation()
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ✅ Hàm helper để navigate đến lesson
+private fun navigateToLesson(
+    navController: NavHostController,
+    lesson: LessonItem,
+    courseId: String?,
+    currentLessonId: String
+) {
+    when (lesson.lessonType) {
+        LessonType.VIDEO, LessonType.UNKNOWN -> {
+            val targetRoute = if (courseId.isNullOrBlank()) {
+                lessonPlayerRoute(lesson.id)
+            } else {
+                RouteHelpers.lessonPlayerRoute(courseId, lesson.id)
+            }
+            navController.navigate(targetRoute) {
+                val currentRoute = if (courseId.isNullOrBlank()) {
+                    lessonPlayerRoute(currentLessonId)
+                } else {
+                    RouteHelpers.lessonPlayerRoute(courseId, currentLessonId)
+                }
+                popUpTo(currentRoute) { inclusive = true }
+                launchSingleTop = false
+                restoreState = false
+            }
+        }
+        LessonType.READING -> {
+            navController.navigateLessonContent(lesson.id)
+        }
+        LessonType.QUIZ -> {
+            val quizIdToUse = lesson.quizId?.takeIf { it.isNotBlank() } ?: lesson.id
+            navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(quizIdToUse)) {
+                launchSingleTop = false
+                restoreState = false
+            }
+        }
+        LessonType.FLASHCARD -> {
+            navController.navigate("flashcard/${lesson.id}") {
+                launchSingleTop = false
+                restoreState = false
             }
         }
     }
@@ -199,7 +298,8 @@ private fun VideoPlayerArea(
                 .background(Color.Black),
         ) {
             if (videoId != null) {
-                key(videoId) {
+                // ✅ Dùng key với cả videoId để force reset
+                androidx.compose.runtime.key("player_$videoId") {
                     YoutubeLessonPlayer(
                         videoId = videoId,
                         modifier = Modifier.fillMaxSize(),
@@ -254,15 +354,15 @@ private fun LessonInfoCard(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        color    = GlassBg,
-        shape    = RoundedCornerShape(20.dp),
+        color = GlassBg,
+        shape = RoundedCornerShape(20.dp),
         modifier = modifier
             .fillMaxWidth()
             .border(1.dp, GlassBorder, RoundedCornerShape(20.dp)),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
-                verticalAlignment     = Alignment.Top,
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -272,17 +372,17 @@ private fun LessonInfoCard(
                     ) {
                         Text(
                             "Module 3",
-                            color    = Secondary,
-                            style    = MaterialTheme.typography.labelSmall,
+                            color = Secondary,
+                            style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         )
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
                         lesson.title,
-                        style      = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color      = OnSurface,
+                        color = OnSurface,
                     )
                     if (subtitle.isNotBlank()) {
                         Spacer(Modifier.height(4.dp))
@@ -294,15 +394,15 @@ private fun LessonInfoCard(
                     }
                 }
                 IconButton(
-                    onClick  = onSave,
+                    onClick = onSave,
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
                         .background(SurfaceContainer),
                 ) {
                     Icon(
-                        imageVector        = if (isSaved) Icons.Default.BookmarkAdded else Icons.Default.BookmarkAdd,
+                        imageVector = if (isSaved) Icons.Default.BookmarkAdded else Icons.Default.BookmarkAdd,
                         contentDescription = "Save",
-                        tint               = if (isSaved) Primary else OnSurfaceVariant,
+                        tint = if (isSaved) Primary else OnSurfaceVariant,
                     )
                 }
             }
@@ -335,18 +435,18 @@ private fun StatItem(icon: androidx.compose.ui.graphics.vector.ImageVector, text
 private fun LessonTagsRow(tags: List<String>, modifier: Modifier = Modifier) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier              = modifier,
+        modifier = modifier,
     ) {
         tags.forEach { tag ->
             Surface(
-                color  = SurfaceContainer,
-                shape  = RoundedCornerShape(50.dp),
+                color = SurfaceContainer,
+                shape = RoundedCornerShape(50.dp),
                 modifier = Modifier.border(1.dp, GlassBorder, RoundedCornerShape(50.dp)),
             ) {
                 Text(
-                    text     = tag,
-                    color    = Primary,
-                    style    = MaterialTheme.typography.labelSmall,
+                    text = tag,
+                    color = Primary,
+                    style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
                 )
             }
@@ -359,14 +459,14 @@ private fun LessonTagsRow(tags: List<String>, modifier: Modifier = Modifier) {
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun PlaylistItem(
-    item:      LessonItem,
+    item: LessonItem,
     isCurrent: Boolean,
-    onClick:   () -> Unit,
-    modifier:  Modifier = Modifier,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
-        color    = if (isCurrent) SurfaceVariant else Background,
-        shape    = RoundedCornerShape(12.dp),
+        color = if (isCurrent) SurfaceVariant else Background,
+        shape = RoundedCornerShape(12.dp),
         modifier = modifier
             .fillMaxWidth()
             .then(
@@ -379,13 +479,13 @@ private fun PlaylistItem(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier          = Modifier
+            modifier = Modifier
                 .padding(8.dp)
                 .then(if (item.isLocked) Modifier.alpha(0.55f) else Modifier),
         ) {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier         = Modifier
+                modifier = Modifier
                     .width(112.dp)
                     .height(64.dp)
                     .clip(RoundedCornerShape(8.dp))
@@ -393,10 +493,10 @@ private fun PlaylistItem(
             ) {
                 if (!item.isLocked && item.thumbnailUrl.isNotEmpty()) {
                     AsyncImage(
-                        model              = item.thumbnailUrl,
+                        model = item.thumbnailUrl,
                         contentDescription = null,
-                        contentScale       = ContentScale.Crop,
-                        modifier           = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
 
@@ -412,38 +512,38 @@ private fun PlaylistItem(
 
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier         = Modifier
+                    modifier = Modifier
                         .fillMaxSize()
                         .background(Color.Black.copy(if (isCurrent) 0.35f else 0.20f)),
                 ) {
                     Icon(
-                        imageVector        = when {
-                            item.isLocked   -> Icons.Default.Lock
-                            isCurrent       -> Icons.Default.PlayCircle
-                            else            -> Icons.Default.PlayCircle
+                        imageVector = when {
+                            item.isLocked -> Icons.Default.Lock
+                            isCurrent -> Icons.Default.PlayCircle
+                            else -> Icons.Default.PlayCircle
                         },
                         contentDescription = null,
-                        tint               = when {
+                        tint = when {
                             item.isLocked -> OnSurfaceVariant
-                            isCurrent     -> Primary
-                            else          -> Color.White.copy(0.8f)
+                            isCurrent -> Primary
+                            else -> Color.White.copy(0.8f)
                         },
-                        modifier           = Modifier.size(24.dp),
+                        modifier = Modifier.size(24.dp),
                     )
                 }
 
                 if (!item.isLocked && item.durationSeconds > 0) {
                     Surface(
-                        color    = Color.Black.copy(0.8f),
-                        shape    = RoundedCornerShape(4.dp),
+                        color = Color.Black.copy(0.8f),
+                        shape = RoundedCornerShape(4.dp),
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(4.dp),
                     ) {
                         Text(
                             item.formattedDuration,
-                            color    = Color.White,
-                            style    = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
                             fontSize = 9.sp,
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                         )
@@ -455,21 +555,21 @@ private fun PlaylistItem(
 
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier            = Modifier.weight(1f),
+                modifier = Modifier.weight(1f),
             ) {
                 Text(
-                    text       = item.title,
-                    style      = MaterialTheme.typography.labelLarge,
+                    text = item.title,
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                    color      = if (isCurrent) Primary else OnSurface,
-                    maxLines   = 2,
-                    overflow   = TextOverflow.Ellipsis,
+                    color = if (isCurrent) Primary else OnSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text  = when {
-                        isCurrent   -> "Now Playing"
+                    text = when {
+                        isCurrent -> "Now Playing"
                         item.isLocked -> "Complete previous lessons"
-                        else        -> "Lesson"
+                        else -> "Lesson"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = if (isCurrent) Secondary else OnSurfaceVariant,
@@ -486,8 +586,8 @@ private fun PlaylistItem(
 private fun LessonPlayerTopBar(onBack: () -> Unit) {
     Surface(color = GlassBg, tonalElevation = 0.dp) {
         Row(
-            verticalAlignment     = Alignment.CenterVertically,
-            modifier              = Modifier
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 4.dp, vertical = 8.dp),
         ) {
@@ -497,7 +597,7 @@ private fun LessonPlayerTopBar(onBack: () -> Unit) {
             Text(
                 "SMART REVIEW",
                 style = MaterialTheme.typography.titleMedium.copy(
-                    brush      = Brush.linearGradient(listOf(GradientStart, GradientEnd)),
+                    brush = Brush.linearGradient(listOf(GradientStart, GradientEnd)),
                     fontWeight = FontWeight.Bold,
                 ),
             )

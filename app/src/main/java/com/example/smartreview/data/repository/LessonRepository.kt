@@ -7,7 +7,7 @@ import com.example.smartreview.data.model.LessonContent
  */
 interface LessonRepository {
 
-    fun getLesson(lessonId: String): LessonContent?
+    suspend fun getLesson(lessonId: String): LessonContent?  // ✅ Thêm suspend
 
-    fun getLessonsForCourse(courseId: String): List<LessonContent>
+    suspend fun getLessonsForCourse(courseId: String): List<LessonContent>  // ✅ Thêm suspend
 }

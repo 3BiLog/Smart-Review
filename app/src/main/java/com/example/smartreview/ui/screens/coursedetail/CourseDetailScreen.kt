@@ -230,7 +230,10 @@ fun CourseDetailScreen(
                         android.util.Log.d("CourseDetailScreen", "Lesson clicked: id=${lesson.id}, type=${lesson.lessonType}, isLocked=${lesson.isLocked}")
                         if (!lesson.isLocked) {
                             when (lesson.lessonType) {
-                                LessonType.VIDEO, LessonType.UNKNOWN -> navController.navigateLessonVideo(lesson.id, courseId = course.id)
+                                LessonType.VIDEO, LessonType.UNKNOWN -> {
+                                    android.util.Log.d("CourseDetailScreen", "Navigating to video: lesson=${lesson.id}, course=${course.id}")
+                                    navController.navigateLessonVideo(lesson.id, courseId = course.id)
+                                }
                                 LessonType.READING -> navController.navigateReading(lesson.id)  // Đã có navigateReading
                                 LessonType.QUIZ -> navController.navigate(quizRoute(lesson.quizId ?: lesson.id))
                                 LessonType.FLASHCARD -> navController.navigate("flashcard/${lesson.id}")

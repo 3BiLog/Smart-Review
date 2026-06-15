@@ -9,7 +9,7 @@ object RouteHelpers {
     private const val TAG = "RouteHelpers"
 
     fun lessonPlayerRoute(lessonId: String): String = "lesson_player/$lessonId"
-    
+
     fun lessonPlayerRoute(courseId: String, lessonId: String): String {
         val route = "lesson_player/$courseId/$lessonId"
         Log.d(TAG, "lessonPlayerRoute: courseId=$courseId, lessonId=$lessonId → $route")

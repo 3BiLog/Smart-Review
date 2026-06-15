@@ -9,6 +9,7 @@ import com.example.smartreview.data.repository.GamificationServiceProvider
 import com.example.smartreview.data.repository.LessonRepositoryProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.util.UUID
 
 /**
@@ -31,7 +32,7 @@ object LessonFlowCompletion {
             onReady(null)
             return
         }
-        val lesson = LessonRepositoryProvider.default.getLesson(lessonId) ?: run {
+        val lesson = runBlocking { LessonRepositoryProvider.default.getLesson(lessonId) } ?: run {
             onReady(null)
             return
         }
