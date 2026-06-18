@@ -45,7 +45,7 @@ class CourseDetailViewModel(
     private val _uiState = MutableStateFlow(CourseDetailUiState())
     val uiState: StateFlow<CourseDetailUiState> = _uiState.asStateFlow()
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private var originalCourse: Course? = null
 
     init {
         loadCourseWithProgression()
@@ -53,15 +53,23 @@ class CourseDetailViewModel(
     }
 
     fun refreshProgression() {
-        viewModelScope.launch { applyProgressionToCourse() }
+        viewModelScope.launch { applyProgression() }
     }
 
     fun refreshEnrollment(justPaid: Boolean = false) {
+        android.util.Log.d("CourseDetailVM", "🔥 refreshEnrollment called with justPaid=$justPaid")
         viewModelScope.launch {
             if (justPaid) {
-                // Gọi trực tiếp Firestore để lấy dữ liệu mới nhất
-                checkEnrollmentAndApply(justPaid = true)
+                android.util.Log.d("CourseDetailVM", "🔄 justPaid is true, reloading course from repository")
+                val course = courseRepository.getCourseById(courseId)
+                originalCourse = course
+                if (course != null) {
+                    checkEnrollmentAndApply(course, justPaid = true)
+                } else {
+                    _uiState.update { it.copy(isLoading = false) }
+                }
             } else {
+                android.util.Log.d("CourseDetailVM", "↩️ justPaid is false, checking enrollment normally")
                 checkEnrollmentAndApply()
             }
         }
@@ -69,9 +77,14 @@ class CourseDetailViewModel(
 
     private fun loadCourseWithProgression() {
         viewModelScope.launch {
-            val template = courseRepository.getCourseById(courseId)
             _uiState.update { it.copy(isLoading = true) }
-            checkEnrollmentAndApply(template)
+            val course = courseRepository.getCourseById(courseId)
+            originalCourse = course
+            if (course == null) {
+                _uiState.update { it.copy(isLoading = false) }
+                return@launch
+            }
+            checkEnrollmentAndApply(course)
         }
     }
 
@@ -89,10 +102,10 @@ class CourseDetailViewModel(
     }
 
     private suspend fun checkEnrollmentAndApply(
-        template: Course? = _uiState.value.course,
+        template: Course? = null,
         justPaid: Boolean = false,
     ) {
-        val course = template ?: courseRepository.getCourseById(courseId)
+        val course = template ?: originalCourse ?: courseRepository.getCourseById(courseId)
         if (course == null) {
             _uiState.update { it.copy(isLoading = false, isCheckingEnrollment = false) }
             return
@@ -106,15 +119,18 @@ class CourseDetailViewModel(
             false
         } else {
             if (justPaid) {
-                // Bỏ qua cache, lấy trực tiếp từ Firestore
-                val snapshot = firestore.collection("enrollments")
+                android.util.Log.d("CourseDetailVM", "🔍 justPaid true: querying Firestore directly for enrollment")
+                val snapshot = FirebaseFirestore.getInstance()
+                    .collection("enrollments")
                     .whereEqualTo("userId", uid)
                     .whereEqualTo("courseId", courseId)
                     .get()
                     .await()
-                snapshot.documents.isNotEmpty()
+                val isEnrolled = snapshot.documents.isNotEmpty()
+                android.util.Log.d("CourseDetailVM", "📌 Firestore enrollment result: $isEnrolled")
+                isEnrolled
             } else {
-                // Dùng repository (có cache)
+                android.util.Log.d("CourseDetailVM", "📦 using repository cache for enrollment")
                 enrollmentRepository.isEnrolled(uid, courseId)
             }
         }
@@ -125,25 +141,21 @@ class CourseDetailViewModel(
                 isCheckingEnrollment = false,
             )
         }
-        applyProgression(course, enrolled)
+        applyProgression(originalCourse ?: course, enrolled)
     }
 
-    private suspend fun applyProgressionToCourse() {
-        val template = _uiState.value.course
-            ?: courseRepository.getCourseById(courseId)
-        val enrolled = _uiState.value.isEnrolled || (template?.price == 0L)
-        applyProgression(template, enrolled)
-    }
+    private suspend fun applyProgression(
+        courseOverride: Course? = null,
+        enrolledOverride: Boolean? = null,
+    ) {
+        val course = courseOverride ?: originalCourse ?: courseRepository.getCourseById(courseId) ?: return
+        val isEnrolled = enrolledOverride ?: _uiState.value.isEnrolled
 
-    private suspend fun applyProgression(template: Course?, isEnrolled: Boolean) {
-        if (template == null) {
-            _uiState.update { it.copy(isLoading = false) }
-            return
-        }
         val snapshot = buildProgressSnapshot()
-        val result = progressionPolicy.applyToCourse(template, snapshot)
+        val result = progressionPolicy.applyToCourse(course, snapshot)
         val lockedCourse = applyPurchaseLock(result.course, isEnrolled)
         val firstUnlockedModuleId = lockedCourse.modules.firstOrNull { !it.isLocked }?.id
+
         _uiState.update { state ->
             state.copy(
                 course = lockedCourse,

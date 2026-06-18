@@ -58,8 +58,8 @@ fun PaymentMethodScreen(
     LaunchedEffect(state.paymentSuccess) {
         if (state.paymentSuccess) {
             vm.consumePaymentSuccess()
-            navController.navigate(PaymentRoutes.successRoute(courseId)) {
-                popUpTo(PaymentRoutes.methodRoute(courseId)) { inclusive = true }
+            navController.navigate(PaymentRoutes.successRoute(courseId, justPaid = true)) {
+                popUpTo(0) { inclusive = true }
             }
         }
     }

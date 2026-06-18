@@ -47,15 +47,16 @@ fun NavGraphBuilder.paymentGraph(navController: NavHostController) {
         route = PaymentRoutes.SUCCESS,
         arguments = listOf(
             navArgument("courseId") { type = NavType.StringType },
-            navArgument("justPaid") { type = NavType.BoolType; defaultValue = false }
-        ),
+            navArgument("justPaid") { type = NavType.BoolType }
+        )
     ) { backStack ->
         val courseId = backStack.arguments?.getString("courseId") ?: return@composable
         val justPaid = backStack.arguments?.getBoolean("justPaid") ?: false
+        android.util.Log.d("PaymentNavGraph", "📥 SUCCESS screen: courseId=$courseId, justPaid=$justPaid")
         PurchaseSuccessScreen(
             navController = navController,
             courseId = courseId,
-            justPaid = justPaid,  // ← truyền tham số này
+            justPaid = justPaid,
         )
     }
 }

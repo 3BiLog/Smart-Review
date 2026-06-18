@@ -36,9 +36,7 @@ import com.example.smartreview.ui.screens.courses.difficultyColor
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateHeroPlay
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateStartLearning
-import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonContent
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateReading
-import com.example.smartreview.ui.navigation.Screen
 import com.example.smartreview.ui.screens.payment.PaymentRoutes
 import com.example.smartreview.ui.screens.quiz.quizRoute
 import com.example.smartreview.ui.theme.*
@@ -60,18 +58,20 @@ fun CourseDetailScreen(
         factory = CourseDetailViewModel.provideFactory(courseId)
     ),
 ) {
-    // Đọc tham số justPaid từ arguments
-    val justPaid = navController.currentBackStackEntry?.arguments?.getBoolean("justPaid") ?: false
+    // Parse justPaid từ arguments (dạng String)
+    val justPaid = navController.currentBackStackEntry?.arguments?.getString("justPaid")?.toBoolean() ?: false
+    android.util.Log.d("CourseDetailScreen", "✅ justPaid parsed from arguments: $justPaid")
 
     val state by vm.uiState.collectAsStateWithLifecycle()
     val course = state.course ?: return
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    // Refresh enrollment nếu vừa thanh toán
+    // Gọi refresh khi justPaid = true (vừa thanh toán xong)
     LaunchedEffect(justPaid) {
+        android.util.Log.d("CourseDetailScreen", "🚀 LaunchedEffect triggered with justPaid=$justPaid")
         if (justPaid) {
-            vm.refreshEnrollment()
-            // Đợi một chút để Firestore cập nhật
+            android.util.Log.d("CourseDetailScreen", "▶️ Calling vm.refreshEnrollment(justPaid=true)")
+            vm.refreshEnrollment(justPaid = true)
             delay(500)
         }
     }
@@ -264,7 +264,7 @@ fun CourseDetailScreen(
                                     android.util.Log.d("CourseDetailScreen", "Navigating to video: lesson=${lesson.id}, course=${course.id}")
                                     navController.navigateLessonVideo(lesson.id, courseId = course.id)
                                 }
-                                LessonType.READING -> navController.navigateReading(lesson.id)  // Đã có navigateReading
+                                LessonType.READING -> navController.navigateReading(lesson.id)
                                 LessonType.QUIZ -> navController.navigate(quizRoute(lesson.quizId ?: lesson.id))
                                 LessonType.FLASHCARD -> navController.navigate("flashcard/${lesson.id}")
                             }
@@ -276,6 +276,7 @@ fun CourseDetailScreen(
         }
     }
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HERO VIDEO SECTION
