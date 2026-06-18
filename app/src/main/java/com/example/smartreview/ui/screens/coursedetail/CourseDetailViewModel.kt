@@ -11,6 +11,7 @@ import com.example.smartreview.data.repository.CourseRepository
 import com.example.smartreview.data.repository.CourseRepositoryProvider
 import com.example.smartreview.data.repository.EnrollmentRepository
 import com.example.smartreview.data.repository.EnrollmentRepositoryProvider
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 data class CourseDetailUiState(
     val course: Course? = null,
@@ -43,6 +45,8 @@ class CourseDetailViewModel(
     private val _uiState = MutableStateFlow(CourseDetailUiState())
     val uiState: StateFlow<CourseDetailUiState> = _uiState.asStateFlow()
 
+    private val firestore = FirebaseFirestore.getInstance()
+
     init {
         loadCourseWithProgression()
         observeAuthForProgressRefresh()
@@ -52,8 +56,15 @@ class CourseDetailViewModel(
         viewModelScope.launch { applyProgressionToCourse() }
     }
 
-    fun refreshEnrollment() {
-        viewModelScope.launch { checkEnrollmentAndApply() }
+    fun refreshEnrollment(justPaid: Boolean = false) {
+        viewModelScope.launch {
+            if (justPaid) {
+                // Gọi trực tiếp Firestore để lấy dữ liệu mới nhất
+                checkEnrollmentAndApply(justPaid = true)
+            } else {
+                checkEnrollmentAndApply()
+            }
+        }
     }
 
     private fun loadCourseWithProgression() {
@@ -77,7 +88,10 @@ class CourseDetailViewModel(
         }
     }
 
-    private suspend fun checkEnrollmentAndApply(template: Course? = _uiState.value.course) {
+    private suspend fun checkEnrollmentAndApply(
+        template: Course? = _uiState.value.course,
+        justPaid: Boolean = false,
+    ) {
         val course = template ?: courseRepository.getCourseById(courseId)
         if (course == null) {
             _uiState.update { it.copy(isLoading = false, isCheckingEnrollment = false) }
@@ -86,9 +100,24 @@ class CourseDetailViewModel(
 
         val isFree = course.price == 0L
         val uid = AuthSession.state.value.uid
-        val enrolled = isFree || (
-            !uid.isNullOrBlank() && enrollmentRepository.isEnrolled(uid, courseId)
-            )
+        val enrolled = if (isFree) {
+            true
+        } else if (uid.isNullOrBlank()) {
+            false
+        } else {
+            if (justPaid) {
+                // Bỏ qua cache, lấy trực tiếp từ Firestore
+                val snapshot = firestore.collection("enrollments")
+                    .whereEqualTo("userId", uid)
+                    .whereEqualTo("courseId", courseId)
+                    .get()
+                    .await()
+                snapshot.documents.isNotEmpty()
+            } else {
+                // Dùng repository (có cache)
+                enrollmentRepository.isEnrolled(uid, courseId)
+            }
+        }
 
         _uiState.update {
             it.copy(

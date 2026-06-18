@@ -2,7 +2,7 @@ package com.example.smartreview.data.service
 
 import com.example.smartreview.BuildConfig
 import com.example.smartreview.data.model.CreateOrderRequest
-import com.example.smartreview.data.model.CreateOrderResponse
+import com.example.smartreview.data.model.PaymentOrderResponse
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,8 +24,8 @@ class PaymentService {
 
     companion object {
         private val API_BASE_URL: String = BuildConfig.PAYMENT_API_BASE_URL.trimEnd('/')
-        private const val CREATE_ORDER_ENDPOINT = "/create-payos"
-        private const val CHECK_TRANSACTION_ENDPOINT = "/check-transaction"
+        private const val CREATE_ORDER_ENDPOINT = "/api/create-payos-order"
+        private const val CHECK_TRANSACTION_ENDPOINT = "/api/check-transaction"
     }
 
     suspend fun createOrder(
@@ -35,7 +35,7 @@ class PaymentService {
         userName: String,
         amount: Long,
         courseName: String,
-    ): Result<CreateOrderResponse> = withContext(Dispatchers.IO) {
+    ): Result<PaymentOrderResponse> = withContext(Dispatchers.IO) {
         try {
             val request = CreateOrderRequest(
                 courseId = courseId,
@@ -62,16 +62,12 @@ class PaymentService {
 
                 if (!response.isSuccessful) {
                     return@withContext Result.failure(
-                        IOException("HTTP ${response.code}: $responseBody"),
+                        IOException("HTTP ${response.code}: $responseBody")
                     )
                 }
 
-                val result = gson.fromJson(responseBody, CreateOrderResponse::class.java)
-                if (result.success) {
-                    Result.success(result)
-                } else {
-                    Result.failure(Exception(result.error ?: "Unknown error"))
-                }
+                val result = gson.fromJson(responseBody, PaymentOrderResponse::class.java)
+                Result.success(result)
             }
         } catch (e: Exception) {
             android.util.Log.e("PaymentService", "Error creating order", e)
@@ -93,6 +89,8 @@ class PaymentService {
                 }
             }
 
+            android.util.Log.d("PaymentService", "Check URL: $query")
+
             val request = Request.Builder()
                 .url(query)
                 .get()
@@ -100,16 +98,20 @@ class PaymentService {
 
             client.newCall(request).execute().use { response ->
                 val responseBody = response.body?.string() ?: ""
+                android.util.Log.d("PaymentService", "Check Response: $responseBody")
+
                 if (!response.isSuccessful) {
                     return@withContext Result.failure(
-                        IOException("HTTP ${response.code}: $responseBody"),
+                        IOException("HTTP ${response.code}: $responseBody")
                     )
                 }
 
                 val result = gson.fromJson(responseBody, PaymentStatusResponse::class.java)
+                android.util.Log.d("PaymentService", "Parsed status: ${result.status}")
                 Result.success(result)
             }
         } catch (e: Exception) {
+            android.util.Log.e("PaymentService", "Error checking status", e)
             Result.failure(e)
         }
     }

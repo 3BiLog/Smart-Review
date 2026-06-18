@@ -42,10 +42,14 @@ import com.example.smartreview.ui.navigation.Screen
 import com.example.smartreview.ui.screens.payment.PaymentRoutes
 import com.example.smartreview.ui.screens.quiz.quizRoute
 import com.example.smartreview.ui.theme.*
+import kotlinx.coroutines.delay
 
 // ─── Route ───────────────────────────────────────────────────────────────────
-const val COURSE_DETAIL_ROUTE = "course_detail/{courseId}"
-fun courseDetailRoute(courseId: String) = "course_detail/$courseId"
+const val COURSE_DETAIL_ROUTE = "course_detail/{courseId}?justPaid={justPaid}"
+
+fun courseDetailRoute(courseId: String, justPaid: Boolean = false): String {
+    return "course_detail/$courseId?justPaid=$justPaid"
+}
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 @Composable
@@ -56,9 +60,22 @@ fun CourseDetailScreen(
         factory = CourseDetailViewModel.provideFactory(courseId)
     ),
 ) {
+    // Đọc tham số justPaid từ arguments
+    val justPaid = navController.currentBackStackEntry?.arguments?.getBoolean("justPaid") ?: false
+
     val state by vm.uiState.collectAsStateWithLifecycle()
     val course = state.course ?: return
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+    // Refresh enrollment nếu vừa thanh toán
+    LaunchedEffect(justPaid) {
+        if (justPaid) {
+            vm.refreshEnrollment()
+            // Đợi một chút để Firestore cập nhật
+            delay(500)
+        }
+    }
+
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -253,8 +270,7 @@ fun CourseDetailScreen(
                             }
                         }
                     },
-
-                modifier   = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    modifier   = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
         }

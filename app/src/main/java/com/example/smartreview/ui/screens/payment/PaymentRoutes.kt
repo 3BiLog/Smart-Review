@@ -7,7 +7,10 @@ import com.example.smartreview.ui.theme.*
 object PaymentRoutes {
     const val METHOD  = "payment_method/{courseId}/{courseName}/{coursePrice}"
     const val PIN     = "payment_pin/{courseId}/{amount}"
-    const val SUCCESS = "purchase_success/{courseId}"
+    const val SUCCESS = "purchase_success/{courseId}/{justPaid}"
+
+    fun successRoute(courseId: String, justPaid: Boolean = false) =
+        "purchase_success/$courseId/$justPaid"
 
     fun methodRoute(courseId: String, courseName: String = "", coursePrice: Long = 0): String {
         val encodedName = Uri.encode(courseName.ifBlank { "course" })

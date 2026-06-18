@@ -1,5 +1,6 @@
 package com.example.smartreview.data.model
 
+// ---------- Request ----------
 data class CreateOrderRequest(
     val courseId: String,
     val userId: String,
@@ -9,18 +10,14 @@ data class CreateOrderRequest(
     val courseName: String,
 )
 
-data class CreateOrderResponse(
-    val success: Boolean,
-    val data: CreateOrderData? = null,
-    val error: String? = null,
-)
-
-data class CreateOrderData(
-    val transactionId: String,
-    val orderCode: Long,
+// ---------- Response từ server (không wrapper) ----------
+data class PaymentOrderResponse(
     val checkoutUrl: String,
+    val qrCode: String? = null,
+    val transactionId: String,
 )
 
+// ---------- Các model khác (giữ nguyên) ----------
 data class Transaction(
     val id: String,
     val orderCode: Long,

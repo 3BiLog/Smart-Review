@@ -12,7 +12,9 @@ import com.example.smartreview.data.repository.EnrollmentRepositoryProvider
 import com.example.smartreview.data.repository.TransactionRepository
 import com.example.smartreview.data.repository.TransactionRepositoryProvider
 import com.example.smartreview.data.service.PaymentService
+import com.example.smartreview.data.service.PaymentStatusResponse
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,7 +58,7 @@ class PaymentMethodViewModel(
             courseName = courseName,
             coursePrice = coursePrice,
             subtotal = coursePrice,
-        ),
+        )
     )
     val uiState: StateFlow<PaymentMethodUiState> = _uiState.asStateFlow()
 
@@ -137,78 +139,125 @@ class PaymentMethodViewModel(
 
             result.fold(
                 onSuccess = { response ->
-                    if (response.success && response.data != null) {
-                        _uiState.update {
-                            it.copy(
-                                isProcessingPayment = false,
-                                checkoutUrl = response.data.checkoutUrl,
-                                pendingTransactionId = response.data.transactionId,
-                                pendingOrderCode = response.data.orderCode,
-                            )
-                        }
-                    } else {
-                        _uiState.update {
-                            it.copy(
-                                isProcessingPayment = false,
-                                errorMessage = response.error ?: "Không thể tạo đơn hàng",
-                            )
-                        }
-                    }
-                },
-                onFailure = { error ->
+                    android.util.Log.d("PaymentVM", "Order created: ${response.transactionId}")
                     _uiState.update {
                         it.copy(
                             isProcessingPayment = false,
-                            errorMessage = error.message ?: "Lỗi kết nối đến server",
+                            checkoutUrl = response.checkoutUrl,
+                            pendingTransactionId = response.transactionId,
+                            pendingOrderCode = response.transactionId.toLongOrNull(),
                         )
                     }
                 },
+                onFailure = { error ->
+                    android.util.Log.e("PaymentVM", "Create order error", error)
+                    _uiState.update {
+                        it.copy(
+                            isProcessingPayment = false,
+                            errorMessage = error.message ?: "Không thể tạo đơn hàng",
+                        )
+                    }
+                }
             )
         }
     }
 
     private fun checkPaymentStatus() {
         val state = _uiState.value
+        android.util.Log.d(
+            "PaymentVM",
+            "Checking status: transactionId=${state.pendingTransactionId}, orderCode=${state.pendingOrderCode}"
+        )
+
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessingPayment = true, errorMessage = null) }
 
-            val status = transactionRepository.checkPaymentStatus(
-                transactionId = state.pendingTransactionId,
-                orderCode = state.pendingOrderCode,
-            )
+            var result: Result<PaymentStatusResponse>? = null
+            var retryCount = 0
+            val maxRetries = 4
+            var delayMs = 1000L
 
-            when (status) {
-                TransactionStatus.SUCCESS -> {
-                    val uid = AuthSession.state.value.uid
-                    if (!uid.isNullOrBlank()) {
-                        enrollmentRepository.isEnrolled(uid, courseId)
+            while (retryCount < maxRetries && result == null) {
+                val currentResult = paymentService.checkTransactionStatus(
+                    transactionId = state.pendingTransactionId,
+                    orderCode = state.pendingOrderCode,
+                )
+                if (currentResult.isSuccess && currentResult.getOrNull()?.status == "pending") {
+                    // Nếu vẫn pending, thử lại sau delay
+                    if (retryCount < maxRetries - 1) {
+                        android.util.Log.d("PaymentVM", "Status pending, retry in ${delayMs}ms (attempt ${retryCount+1}/$maxRetries)")
+                        delay(delayMs)
+                        delayMs *= 2 // exponential backoff
+                    } else {
+                        result = currentResult
                     }
-                    _uiState.update {
-                        it.copy(
-                            isProcessingPayment = false,
-                            paymentSuccess = true,
-                            pendingTransactionId = null,
-                            pendingOrderCode = null,
-                        )
-                    }
+                } else {
+                    result = currentResult
                 }
-                TransactionStatus.FAILED, TransactionStatus.CANCELLED -> {
-                    _uiState.update {
-                        it.copy(
-                            isProcessingPayment = false,
-                            errorMessage = "Thanh toán chưa thành công. Vui lòng thử lại.",
-                        )
-                    }
-                }
-                TransactionStatus.PENDING -> {
-                    _uiState.update {
-                        it.copy(
-                            isProcessingPayment = false,
-                            errorMessage = "Đang chờ xác nhận thanh toán. Vui lòng thử lại sau vài giây.",
-                        )
-                    }
-                }
+                retryCount++
             }
+
+            if (result == null) {
+                // Nếu vẫn null sau tất cả retry, coi như thất bại
+                _uiState.update {
+                    it.copy(
+                        isProcessingPayment = false,
+                        errorMessage = "Không thể xác nhận trạng thái thanh toán. Vui lòng kiểm tra lại sau."
+                    )
+                }
+                return@launch
+            }
+
+            result.fold(
+                onSuccess = { response ->
+                    android.util.Log.d(
+                        "PaymentVM",
+                        "Final Status response: ${response.status}, paidAt=${response.paidAt}"
+                    )
+                    val status = TransactionStatus.fromString(response.status)
+                    when (status) {
+                        TransactionStatus.SUCCESS -> {
+                            val uid = AuthSession.state.value.uid
+                            if (!uid.isNullOrBlank()) {
+                                enrollmentRepository.isEnrolled(uid, courseId)
+                            }
+                            _uiState.update {
+                                it.copy(
+                                    isProcessingPayment = false,
+                                    paymentSuccess = true,
+                                    pendingTransactionId = null,
+                                    pendingOrderCode = null,
+                                )
+                            }
+                        }
+                        TransactionStatus.FAILED, TransactionStatus.CANCELLED -> {
+                            _uiState.update {
+                                it.copy(
+                                    isProcessingPayment = false,
+                                    errorMessage = "Thanh toán thất bại. Vui lòng thử lại."
+                                )
+                            }
+                        }
+                        TransactionStatus.PENDING -> {
+                            _uiState.update {
+                                it.copy(
+                                    isProcessingPayment = false,
+                                    errorMessage = "Đang chờ xác nhận. Vui lòng thử lại sau."
+                                )
+                            }
+                        }
+                    }
+                },
+                onFailure = { error ->
+                    android.util.Log.e("PaymentVM", "Check status error", error)
+                    _uiState.update {
+                        it.copy(
+                            isProcessingPayment = false,
+                            errorMessage = "Lỗi kiểm tra trạng thái: ${error.message}"
+                        )
+                    }
+                }
+            )
         }
     }
 
@@ -220,7 +269,7 @@ class PaymentMethodViewModel(
                 title = "PayOS - QR Code",
                 subtitle = "Thanh toán qua QR Code, chuyển khoản ngân hàng",
                 isDefault = true,
-            ),
+            )
         )
         _uiState.update {
             it.copy(

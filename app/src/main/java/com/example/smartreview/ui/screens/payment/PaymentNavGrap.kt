@@ -45,12 +45,17 @@ fun NavGraphBuilder.paymentGraph(navController: NavHostController) {
 
     composable(
         route = PaymentRoutes.SUCCESS,
-        arguments = listOf(navArgument("courseId") { type = NavType.StringType }),
+        arguments = listOf(
+            navArgument("courseId") { type = NavType.StringType },
+            navArgument("justPaid") { type = NavType.BoolType; defaultValue = false }
+        ),
     ) { backStack ->
         val courseId = backStack.arguments?.getString("courseId") ?: return@composable
+        val justPaid = backStack.arguments?.getBoolean("justPaid") ?: false
         PurchaseSuccessScreen(
             navController = navController,
             courseId = courseId,
+            justPaid = justPaid,  // ← truyền tham số này
         )
     }
 }
