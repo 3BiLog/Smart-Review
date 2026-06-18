@@ -9,8 +9,6 @@ import com.example.smartreview.data.learning.LearningProgressServiceProvider
 import com.example.smartreview.data.learning.LearningProgressionPolicy
 import com.example.smartreview.data.repository.CourseRepository
 import com.example.smartreview.data.repository.CourseRepositoryProvider
-import com.example.smartreview.data.repository.EnrollmentRepository
-import com.example.smartreview.data.repository.EnrollmentRepositoryProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,7 +36,6 @@ data class CourseDetailUiState(
 class CourseDetailViewModel(
     private val courseId: String,
     private val courseRepository: CourseRepository = CourseRepositoryProvider.default,
-    private val enrollmentRepository: EnrollmentRepository = EnrollmentRepositoryProvider.default,
     private val progressionPolicy: LearningProgressionPolicy = LearningProgressionPolicy(),
 ) : ViewModel() {
 
@@ -46,6 +43,7 @@ class CourseDetailViewModel(
     val uiState: StateFlow<CourseDetailUiState> = _uiState.asStateFlow()
 
     private var originalCourse: Course? = null
+    private val firestore = FirebaseFirestore.getInstance()
 
     init {
         loadCourseWithProgression()
@@ -56,21 +54,16 @@ class CourseDetailViewModel(
         viewModelScope.launch { applyProgression() }
     }
 
+    // Gọi từ màn hình (có thể truyền justPaid, nhưng không còn cần thiết vì ta luôn gọi Firestore)
     fun refreshEnrollment(justPaid: Boolean = false) {
-        android.util.Log.d("CourseDetailVM", "🔥 refreshEnrollment called with justPaid=$justPaid")
         viewModelScope.launch {
-            if (justPaid) {
-                android.util.Log.d("CourseDetailVM", "🔄 justPaid is true, reloading course from repository")
-                val course = courseRepository.getCourseById(courseId)
-                originalCourse = course
-                if (course != null) {
-                    checkEnrollmentAndApply(course, justPaid = true)
-                } else {
-                    _uiState.update { it.copy(isLoading = false) }
-                }
+            // Luôn load lại khóa và kiểm tra enrollment từ Firestore (bỏ qua cache)
+            val course = originalCourse ?: courseRepository.getCourseById(courseId)
+            originalCourse = course
+            if (course != null) {
+                checkEnrollmentAndApply(course)
             } else {
-                android.util.Log.d("CourseDetailVM", "↩️ justPaid is false, checking enrollment normally")
-                checkEnrollmentAndApply()
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
@@ -103,7 +96,6 @@ class CourseDetailViewModel(
 
     private suspend fun checkEnrollmentAndApply(
         template: Course? = null,
-        justPaid: Boolean = false,
     ) {
         val course = template ?: originalCourse ?: courseRepository.getCourseById(courseId)
         if (course == null) {
@@ -118,21 +110,17 @@ class CourseDetailViewModel(
         } else if (uid.isNullOrBlank()) {
             false
         } else {
-            if (justPaid) {
-                android.util.Log.d("CourseDetailVM", "🔍 justPaid true: querying Firestore directly for enrollment")
-                val snapshot = FirebaseFirestore.getInstance()
-                    .collection("enrollments")
-                    .whereEqualTo("userId", uid)
-                    .whereEqualTo("courseId", courseId)
-                    .get()
-                    .await()
-                val isEnrolled = snapshot.documents.isNotEmpty()
-                android.util.Log.d("CourseDetailVM", "📌 Firestore enrollment result: $isEnrolled")
-                isEnrolled
-            } else {
-                android.util.Log.d("CourseDetailVM", "📦 using repository cache for enrollment")
-                enrollmentRepository.isEnrolled(uid, courseId)
-            }
+            // LUÔN GỌI FIRESTORE TRỰC TIẾP, KHÔNG DÙNG CACHE
+            android.util.Log.d("CourseDetailVM", "🔍 Checking enrollment directly from Firestore for user $uid")
+            val snapshot = firestore
+                .collection("enrollments")
+                .whereEqualTo("userId", uid)
+                .whereEqualTo("courseId", courseId)
+                .get()
+                .await()
+            val result = snapshot.documents.isNotEmpty()
+            android.util.Log.d("CourseDetailVM", "📌 Firestore enrollment result: $result")
+            result
         }
 
         _uiState.update {
