@@ -52,16 +52,30 @@ export default async function handler(req, res) {
     const returnUrl = `${appReturn}?courseId=${encodeURIComponent(courseId)}&orderCode=${orderCode}&status=success`;
     const cancelUrl = `${appReturn}?courseId=${encodeURIComponent(courseId)}&orderCode=${orderCode}&status=cancel`;
 
-    const description = `SmartReview - ${(courseName || "Khoa hoc").slice(0, 50)}`;
+    const description = (courseName || "Khoa hoc").slice(0, 25);
 
     const payos = getPayOS();
-    const paymentLink = await payos.createPaymentLink({
-      orderCode,
-      amount: Number(amount),
-      description,
-      returnUrl,
-      cancelUrl,
-    });
+    console.log("PAYOS_CLIENT_ID =", process.env.PAYOS_CLIENT_ID);
+    console.log("PAYOS_API_KEY =", process.env.PAYOS_API_KEY?.substring(0,10));
+    try {
+      const paymentLink = await payos.createPaymentLink({
+        orderCode,
+        amount: Number(amount),
+        description,
+        returnUrl,
+        cancelUrl,
+      });
+
+      console.log("PAYOS SUCCESS");
+    } catch (e) {
+        console.error("===== PAYOS ERROR =====");
+        console.error("MESSAGE:", e?.message);
+        console.error("NAME:", e?.name);
+        console.error("STACK:", e?.stack);
+        console.error("FULL:", e);
+
+        throw e;
+      }
 
     const db = getFirestore();
     const transactionRef = db.collection(Collections.TRANSACTIONS).doc();

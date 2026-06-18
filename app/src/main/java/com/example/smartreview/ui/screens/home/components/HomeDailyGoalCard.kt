@@ -114,7 +114,7 @@ internal fun HomeDailyGoalCard(
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = if (isCompleted) "✅" else "$current",
+                        text = if (isCompleted) "\uD83C\uDFC6" else "$current",
                         style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
                         color = if (isCompleted) Secondary else OnSurface,
                     )

@@ -1,3 +1,4 @@
+import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -21,7 +22,13 @@ android {
 
         // Emulator: 10.0.2.2 = host localhost. Override in local.properties:
         // PAYMENT_API_BASE_URL=https://your-app.vercel.app/api
-        val paymentApiUrl = project.findProperty("PAYMENT_API_BASE_URL") as String?
+        val localProperties = Properties()
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.inputStream().use { localProperties.load(it) }
+        }
+
+        val paymentApiUrl = localProperties.getProperty("PAYMENT_API_BASE_URL")
             ?: "http://10.0.2.2:3000/api"
         buildConfigField("String", "PAYMENT_API_BASE_URL", "\"$paymentApiUrl\"")
     }

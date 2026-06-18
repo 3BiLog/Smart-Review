@@ -195,7 +195,7 @@ fun ProfileScreen(
                         )
                         if (isCompleted) {
                             Text(
-                                "✅ Đã đạt mục tiêu! +${state.dailyGoalXP} XP",
+                                "Đã đạt mục tiêu! +${state.dailyGoalXP} XP",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Secondary,
                                 fontWeight = FontWeight.Bold,
