@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -77,6 +76,8 @@ internal fun FlashcardSummaryGradientButton(
 
 @Composable
 internal fun FlashcardSummaryReviewButton(
+    text: String,
+    icon: ImageVector,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
@@ -94,14 +95,14 @@ internal fun FlashcardSummaryReviewButton(
         modifier = modifier.height(54.dp),
     ) {
         Icon(
-            imageVector = Icons.Default.Replay,
+            imageVector = icon,
             contentDescription = null,
             tint = Primary,
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = "Ôn lại",
+            text = text,
             fontWeight = FontWeight.SemiBold,
             fontSize = 15.sp,
         )

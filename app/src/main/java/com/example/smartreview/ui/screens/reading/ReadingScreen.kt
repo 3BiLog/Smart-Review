@@ -1,28 +1,37 @@
 package com.example.smartreview.ui.screens.reading
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.smartreview.data.learning.StudyTimeManager
+import com.example.smartreview.data.model.LessonType
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonContent
+import com.example.smartreview.ui.navigation.Screen
+import com.example.smartreview.ui.screens.quiz.quizRoute
 import com.example.smartreview.ui.theme.*
 import kotlinx.coroutines.delay
 
 const val READING_ROUTE = "reading/{lessonId}"
 fun readingRoute(lessonId: String) = "reading/$lessonId"
 
-@OptIn(ExperimentalMaterial3Api::class)  // FIXED: Add this annotation
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReadingScreen(
     navController: NavHostController,
@@ -30,8 +39,42 @@ fun ReadingScreen(
     viewModel: ReadingViewModel = viewModel(factory = ReadingViewModel.provideFactory(lessonId))
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // ✅ Track goal completion with state
+    var showGoalCompleted by remember { mutableStateOf(false) }
+    var xpEarned by remember { mutableStateOf(0L) }
+    val context = LocalContext.current
+
+    // ✅ Callback to update state when goal completed
+    val onGoalCompleted: (Long) -> Unit = remember {
+        { xp ->
+            xpEarned = xp
+            showGoalCompleted = true
+        }
+    }
+
+    // ✅ Show toast when goal completed
+    if (showGoalCompleted) {
+        LaunchedEffect(showGoalCompleted) {
+            Toast.makeText(
+                context,
+                "Hoàn thành mục tiêu hôm nay! +$xpEarned XP",
+                Toast.LENGTH_LONG
+            ).show()
+            delay(3000)
+            showGoalCompleted = false
+        }
+    }
+
 
     android.util.Log.d("ReadingScreen", "ReadingScreen launched with lessonId=$lessonId, isLoading=${state.isLoading}")
+
+    DisposableEffect(Unit) {
+        StudyTimeManager.startTracking("ReadingScreen", onGoalCompleted)
+        onDispose {
+            StudyTimeManager.stopTracking()
+        }
+    }
+
 
     if (state.isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -80,6 +123,7 @@ fun ReadingScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Nội dung reading
             Surface(
                 modifier = Modifier
                     .weight(1f)
@@ -111,12 +155,15 @@ fun ReadingScreen(
                 }
             }
 
+            // ✅ Nút "Đánh dấu đã đọc"
             Button(
                 onClick = { viewModel.completeReading() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (state.isCompleted) Secondary else Primary
+                ),
                 enabled = !state.isCompleted && !state.isCompleting
             ) {
                 if (state.isCompleting) {
@@ -126,12 +173,64 @@ fun ReadingScreen(
                         strokeWidth = 2.dp
                     )
                 } else if (state.isCompleted) {
-                    Text("✅ Đã hoàn thành")
+                    Spacer(Modifier.width(8.dp))
+                    Text("Đã hoàn thành")
                 } else {
-                    Text("📖 Đánh dấu đã đọc (+${reading.xpReward} XP)")
+                    Text("Đánh dấu đã đọc (+${reading.xpReward} XP)")
                 }
             }
 
+            // ✅ Nút "Bài học tiếp theo" hoặc "Về trang chủ"
+            if (state.isCompleted) {
+                if (state.hasNextLesson && state.nextLessonId != null) {
+                    // Có lesson tiếp theo
+                    Button(
+                        onClick = {
+                            val nextLessonId = state.nextLessonId
+                            val nextLessonType = state.nextLessonType
+                            if (nextLessonId != null) {
+                                navigateToNextLesson(navController, nextLessonId, nextLessonType, reading.courseId)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                    ) {
+                        Icon(Icons.Default.ArrowForward, null)
+                        Spacer(Modifier.width(8.dp))
+                        val lessonTypeLabel = when (state.nextLessonType) {
+                            LessonType.VIDEO -> "🎬"
+                            LessonType.READING -> "📖"
+                            LessonType.QUIZ -> "📝"
+                            LessonType.FLASHCARD -> "🃏"
+                            else -> "▶️"
+                        }
+                        val title = state.nextLessonTitle?.take(30) ?: "Bài học tiếp theo"
+                        Text("Bài học tiếp theo")
+                    }
+                } else {
+                    // Không còn lesson tiếp theo
+                    Button(
+                        onClick = {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Home.route) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                    ) {
+                        Text("Về trang chủ")
+                    }
+                }
+            }
+
+            // Snackbar hiển thị thành công
             if (state.showSuccess) {
                 LaunchedEffect(Unit) {
                     delay(2000)
@@ -142,13 +241,12 @@ fun ReadingScreen(
                     action = {
                         TextButton(onClick = {
                             viewModel.dismissSuccess()
-                            navController.popBackStack()
                         }) {
                             Text("OK")
                         }
                     }
                 ) {
-                    Text("✅ Hoàn thành! +${reading.xpReward} XP")
+                    Text("Hoàn thành! +${reading.xpReward} XP")
                 }
             }
 
@@ -165,6 +263,38 @@ fun ReadingScreen(
                     Text(error, color = Color.White)
                 }
             }
+        }
+    }
+}
+
+// ✅ Hàm helper để navigate đến lesson tiếp theo
+private fun navigateToNextLesson(
+    navController: NavHostController,
+    nextLessonId: String,
+    lessonType: LessonType?,
+    courseId: String?,
+) {
+    when (lessonType) {
+        LessonType.VIDEO, LessonType.UNKNOWN -> {
+            navController.navigateLessonVideo(nextLessonId, courseId = courseId)
+        }
+        LessonType.READING -> {
+            navController.navigateLessonContent(nextLessonId)
+        }
+        LessonType.QUIZ -> {
+            navController.navigate(quizRoute(nextLessonId)) {
+                launchSingleTop = false
+                restoreState = false
+            }
+        }
+        LessonType.FLASHCARD -> {
+            navController.navigate("flashcard/${nextLessonId}") {
+                launchSingleTop = false
+                restoreState = false
+            }
+        }
+        else -> {
+            navController.navigateLessonVideo(nextLessonId, courseId = courseId)
         }
     }
 }

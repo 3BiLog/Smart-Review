@@ -28,6 +28,9 @@ object UserRepositoryProvider {
         override suspend fun ensureUserProfileExists(uid: String, email: String, displayName: String?): UserProfile {
             return UserProfile(uid = uid, displayName = displayName ?: email, email = email)
         }
+        override suspend fun updateDailyGoal(dailyGoal: Long): Boolean = false
+        override suspend fun addStudyTime(minutes: Long): Boolean = false
+        override suspend fun resetDailyStudyTime(): Boolean = false
     }
 
     val default: UserRepository = FirestoreUserRepository(fallback = emptyFallback)

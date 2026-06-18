@@ -11,5 +11,9 @@
 /build
 /captures
 .externalNativeBuild
-.cxx
 local.properties
+backend/.env.local
+backend/node_modules
+backend/.vercel
+serviceAccountKey.json
+**/serviceAccountKey.json

@@ -39,6 +39,7 @@ import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateStar
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonContent
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateReading
 import com.example.smartreview.ui.navigation.Screen
+import com.example.smartreview.ui.screens.payment.PaymentRoutes
 import com.example.smartreview.ui.screens.quiz.quizRoute
 import com.example.smartreview.ui.theme.*
 
@@ -60,7 +61,10 @@ fun CourseDetailScreen(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) vm.refreshProgression()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                vm.refreshEnrollment()
+                vm.refreshProgression()
+            }
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
@@ -78,12 +82,21 @@ fun CourseDetailScreen(
             CourseDetailBottomBar(
                 price        = course.formattedPrice,
                 isBookmarked = state.isBookmarked,
+                isEnrolled   = state.isEnrolled || course.price == 0L,
                 onBookmark   = { vm.toggleBookmark() },
                 onBuy        = {
-                    if (course.formattedPrice == "Miễn phí") {
+                    if (course.price == 0L || state.isEnrolled) {
                         navController.navigateStartLearning(
                             course = course,
                             preferredLessonId = state.recommendedNextLessonId,
+                        )
+                    } else {
+                        navController.navigate(
+                            PaymentRoutes.methodRoute(
+                                courseId = course.id,
+                                courseName = course.title,
+                                coursePrice = course.price,
+                            ),
                         )
                     }
                 },
@@ -535,6 +548,7 @@ private fun LessonRow(lesson: LessonItem, onClick: () -> Unit) {
 private fun CourseDetailBottomBar(
     price:        String,
     isBookmarked: Boolean,
+    isEnrolled:   Boolean,
     onBookmark:   () -> Unit,
     onBuy:        () -> Unit,
 ) {
@@ -575,7 +589,11 @@ private fun CourseDetailBottomBar(
                     .clickable(onClick = onBuy),
             ) {
                 Text(
-                    text  = if (price == "Miễn phí") "Bắt đầu học" else "Mua ngay – $price",
+                    text  = when {
+                        price == "Miễn phí" -> "Bắt đầu học"
+                        isEnrolled -> "Tiếp tục học"
+                        else -> "Mua ngay – $price"
+                    },
                     color = Color.White,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,

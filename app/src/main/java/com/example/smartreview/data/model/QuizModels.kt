@@ -47,6 +47,7 @@ data class QuizCompletionResult(
     val durationMs: Long,
     val completedAt: Long = System.currentTimeMillis(),
     val xpEarned: Long = 0,
+    val lessonId: String = "",
 ) {
     fun formattedStudyTime(): String {
         val totalSeconds = (durationMs / 1000).coerceAtLeast(0)

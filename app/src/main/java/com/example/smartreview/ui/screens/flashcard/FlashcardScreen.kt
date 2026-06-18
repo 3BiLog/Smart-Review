@@ -1,5 +1,6 @@
 package com.example.smartreview.ui.screens.flashcard
 
+import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -25,8 +27,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.smartreview.data.learning.StudyTimeManager
 import com.example.smartreview.ui.screens.flashcardsummary.flashcardSummaryRoute
 import com.example.smartreview.ui.theme.*
+import kotlinx.coroutines.delay
 
 @Composable
 fun FlashcardScreen(
@@ -35,6 +39,38 @@ fun FlashcardScreen(
     vm: FlashcardViewModel = viewModel(factory = FlashcardViewModel.provideFactory(lessonId)),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // ✅ Track goal completion with state
+    var showGoalCompleted by remember { mutableStateOf(false) }
+    var xpEarned by remember { mutableStateOf(0L) }
+    var goalCompletedMessage by remember { mutableStateOf<String?>(null) }
+
+
+    // ✅ Callback to update state when goal completed
+    val onGoalCompleted: (Long) -> Unit = remember {
+        { xp ->
+            goalCompletedMessage = "Hoàn thành mục tiêu hôm nay! +$xp XP"
+            android.util.Log.d("FlashcardScreen", "Goal completed! +$xp XP")
+        }
+    }
+
+    // ✅ Hiển thị Toast khi có message
+    goalCompletedMessage?.let { message ->
+        LaunchedEffect(message) {
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            delay(3000)
+            goalCompletedMessage = null
+        }
+    }
+
+    // ✅ Start tracking
+    DisposableEffect(Unit) {
+        StudyTimeManager.startTracking("FlashcardScreen", onGoalCompleted)
+        onDispose {
+            StudyTimeManager.stopTracking()
+        }
+    }
 
     if (state.isLoading || state.cards.isEmpty()) {
         Box(

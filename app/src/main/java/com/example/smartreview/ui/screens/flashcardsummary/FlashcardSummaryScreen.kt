@@ -7,7 +7,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Scaffold
@@ -20,7 +23,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.example.smartreview.data.model.LessonType
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonContent
+import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
+import com.example.smartreview.ui.navigation.Screen
 import com.example.smartreview.ui.screens.flashcardsummary.components.*
+import com.example.smartreview.ui.screens.quiz.quizRoute
 import com.example.smartreview.ui.theme.Background
 import com.example.smartreview.ui.theme.Primary
 import com.example.smartreview.ui.theme.SmartReviewTheme
@@ -103,14 +111,46 @@ fun FlashcardSummaryScreen(
 
                 Spacer(Modifier.height(40.dp))
 
+                val isLastLessonOfLastModule = state.isLastLessonInModule && state.isLastModule
+                val hasNextLesson = state.hasNextLesson && state.nextLessonId != null
+
+                val (primaryText, primaryIcon) = when {
+                    isLastLessonOfLastModule -> "Hoàn thành khóa học" to Icons.Default.CheckCircle
+                    hasNextLesson -> {
+                        val title = state.nextLessonTitle?.take(30) ?: "Bài học tiếp theo"
+                        "Bài học tiếp theo: $title" to Icons.Default.ArrowForward
+                    }
+                    else -> "Quay lại khóa học" to Icons.Default.ArrowBack
+                }
+
                 FlashcardSummaryGradientButton(
-                    text = "Tiếp theo",
-                    icon = Icons.Default.ArrowForward,
+                    text = primaryText,
+                    icon = primaryIcon,
                     loading = state.isNavigating,
                     modifier = Modifier.fillMaxWidth(),
                     onClick = {
-                        vm.onNextClicked {
-                            navController.popBackStack()
+                        vm.onPrimaryAction {
+                            when {
+                                hasNextLesson -> {
+                                    val nextLessonId = state.nextLessonId
+                                    val nextLessonType = state.nextLessonType
+                                    if (nextLessonId != null) {
+                                        navigateToNextLesson(
+                                            navController,
+                                            nextLessonId,
+                                            nextLessonType,
+                                            state.courseId,
+                                            state.nextLessonQuizId,
+                                        )
+                                    }
+                                }
+                                else -> {
+                                    navController.navigate("course_detail/${state.courseId}") {
+                                        popUpTo(Screen.Home.route) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            }
                         }
                     },
                 )
@@ -118,14 +158,49 @@ fun FlashcardSummaryScreen(
                 Spacer(Modifier.height(12.dp))
 
                 FlashcardSummaryReviewButton(
+                    text = "Về trang chủ",
+                    icon = Icons.Default.Home,
                     modifier = Modifier.fillMaxWidth(),
                     onClick = {
-                        vm.onReviewClicked {
-                            navController.popBackStack()
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Home.route) { inclusive = true }
+                            launchSingleTop = true
                         }
                     },
                 )
             }
+        }
+    }
+}
+
+private fun navigateToNextLesson(
+    navController: NavHostController,
+    nextLessonId: String,
+    lessonType: LessonType?,
+    courseId: String,
+    nextLessonQuizId: String? = null,
+) {
+    when (lessonType) {
+        LessonType.VIDEO, LessonType.UNKNOWN -> {
+            navController.navigateLessonVideo(nextLessonId, courseId = courseId)
+        }
+        LessonType.READING -> {
+            navController.navigateLessonContent(nextLessonId)
+        }
+        LessonType.QUIZ -> {
+            navController.navigate(quizRoute(nextLessonQuizId ?: nextLessonId)) {
+                launchSingleTop = false
+                restoreState = false
+            }
+        }
+        LessonType.FLASHCARD -> {
+            navController.navigate("flashcard/${nextLessonId}") {
+                launchSingleTop = false
+                restoreState = false
+            }
+        }
+        else -> {
+            navController.navigateLessonVideo(nextLessonId, courseId = courseId)
         }
     }
 }

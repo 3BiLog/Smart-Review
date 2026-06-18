@@ -29,5 +29,10 @@ object UserFirestorePaths {
         const val BANNED_AT = "bannedAt"
         const val BANNED_UNTIL = "bannedUntil"
         const val BANNED_REASON = "bannedReason"
+        // ✅ NEW
+        const val DAILY_GOAL = "dailyGoal"
+        const val TODAY_STUDY_TIME = "todayStudyTime"
+        const val LAST_RESET_DATE = "lastResetDate"
+        const val DAILY_GOAL_XP = "dailyGoalXP"
     }
 }

@@ -25,4 +25,9 @@ data class UserDocument(
     val bannedAt: Timestamp? = null,
     val bannedUntil: Timestamp? = null,
     val bannedReason: String? = null,
+    // ✅ NEW
+    val dailyGoal: Long? = null,
+    val todayStudyTime: Long? = null,
+    val lastResetDate: Timestamp? = null,
+    val dailyGoalXP: Long? = null,
 )

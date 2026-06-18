@@ -78,7 +78,23 @@ data class UserProfile(
     val bannedUntil: Timestamp? = null,
 
     @get:PropertyName("bannedReason")
-    val bannedReason: String? = null
+    val bannedReason: String? = null,
+
+    // ✅ NEW: Daily goal in minutes (15, 30, 60)
+    @get:PropertyName("dailyGoal")
+    val dailyGoal: Long = 30,
+
+    // ✅ NEW: Today's study time in minutes
+    @get:PropertyName("todayStudyTime")
+    val todayStudyTime: Long = 0,
+
+    // ✅ NEW: Date of last study time reset (to track daily)
+    @get:PropertyName("lastResetDate")
+    val lastResetDate: Timestamp? = null,
+
+    // ✅ NEW: XP earned from completing daily goal
+    @get:PropertyName("dailyGoalXP")
+    val dailyGoalXP: Long = 0,
 ) {
     // Helper function to check if user is banned
     fun isBanned(): Boolean {
@@ -89,4 +105,14 @@ data class UserProfile(
 
     // Helper to get display name with fallback (not named getDisplayName — JVM clashes with property getter)
     fun resolvedDisplayName(): String = displayName.ifEmpty { email.split("@").first() }
+
+    // ✅ Helper: Check if daily goal is completed today
+    fun isDailyGoalCompleted(): Boolean {
+        return todayStudyTime >= dailyGoal
+    }
+
+    // ✅ Helper: Get study time progress as float (0.0 - 1.0)
+    fun getDailyGoalProgress(): Float {
+        return if (dailyGoal > 0) todayStudyTime.toFloat() / dailyGoal.toFloat() else 0f
+    }
 }

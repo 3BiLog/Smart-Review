@@ -153,7 +153,8 @@ class QuizViewModel(
             scorePercent = scorePercent,
             passed = passed,
             durationMs = System.currentTimeMillis() - sessionStartedAt,
-            xpEarned = if (passed) quiz.xpReward else 0
+            xpEarned = if (passed) quiz.xpReward else 0,
+            lessonId = quiz.lessonId ?: ""
         )
         QuizSessionStore.put(result)
         return result

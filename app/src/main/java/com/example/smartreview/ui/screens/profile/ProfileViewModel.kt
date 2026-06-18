@@ -26,7 +26,10 @@ data class ProfileUiState(
     val fullName: String = "Alex Mercer",
     val email: String = "alex.mercer@example.com",
     val phone: String = "",
-    val dailyGoalMinutes: Int = 30,
+    val dailyGoalMinutes: Int = 30,  // 15, 30, 60
+    val todayStudyTime: Int = 0,     // Minutes studied today
+    val dailyGoalXP: Int = 0,        // XP earned from daily goal
+    val isGoalCompleted: Boolean = false,
     val darkModeEnabled: Boolean = true,
     val notificationsOn: Boolean = true,
     val streak: Long = 0,
@@ -40,7 +43,7 @@ data class ProfileUiState(
     val savedFullName: String = "",
     val savedPhone: String = "",
 
-    // ✅ Change password states
+    // Change password states
     val showChangePasswordDialog: Boolean = false,
     val isChangingPassword: Boolean = false,
     val passwordChangeError: String? = null,
@@ -146,7 +149,6 @@ class ProfileViewModel(
     fun onFullNameChange(v: String) = _uiState.update { it.copy(fullName = v) }
     fun onEmailChange(v: String) = _uiState.update { it.copy(email = v) }
     fun onPhoneChange(v: String) = _uiState.update { it.copy(phone = v) }
-    fun selectGoal(minutes: Int) = _uiState.update { it.copy(dailyGoalMinutes = minutes) }
     fun toggleDarkMode() = _uiState.update { it.copy(darkModeEnabled = !it.darkModeEnabled) }
     fun toggleNotifications() = _uiState.update { it.copy(notificationsOn = !it.notificationsOn) }
 
@@ -157,7 +159,7 @@ class ProfileViewModel(
         onLoggedOut()
     }
 
-    // ✅ Change Password Functions
+    // Change Password Functions
     fun showChangePasswordDialog() {
         _uiState.update {
             it.copy(
@@ -211,6 +213,32 @@ class ProfileViewModel(
         _uiState.update { it.copy(passwordChangeSuccess = false) }
     }
 
+    // ✅ NEW: Select daily goal with Firebase sync
+    fun selectGoal(minutes: Int) {
+        _uiState.update { it.copy(dailyGoalMinutes = minutes) }
+        // Sync to Firestore
+        viewModelScope.launch {
+            userRepository.updateDailyGoal(minutes.toLong())
+            showMessage("Đã cập nhật mục tiêu: $minutes phút/ngày")
+        }
+    }
+
+    // ✅ NEW: Add study time (called from Pomodoro or lesson completion)
+    fun addStudyTime(minutes: Int) {
+        viewModelScope.launch {
+            val success = userRepository.addStudyTime(minutes.toLong())
+            if (success) {
+                // Refresh profile to update UI
+                loadUserProfile()
+                // Check if goal was completed
+                val state = _uiState.value
+                if (state.isGoalCompleted) {
+                    showMessage("🎉 Chúc mừng! Bạn đã hoàn thành mục tiêu ${state.dailyGoalMinutes} phút hôm nay! +${state.dailyGoalXP} XP")
+                }
+            }
+        }
+    }
+
     private fun showMessage(message: String) {
         _uiState.update { it.copy(profileMessage = message) }
     }
@@ -231,22 +259,33 @@ class ProfileViewModel(
         _uiState.value = ProfileUiState(isAuthenticated = false)
     }
 
-    private fun ProfileUiState.applyUserProfile(profile: UserProfile): ProfileUiState = copy(
-        avatarUrl = profile.avatarUrl ?: this.avatarUrl,
-        displayName = profile.displayName,
-        levelLabel = levelLabelFromXp(profile.xp),
-        fullName = profile.displayName,
-        email = profile.email,
-        phone = profile.phone,
-        streak = profile.streak,
-        xp = profile.xp,
-        isLoadingProfile = false,
-        isSavingProfile = false,
-        isEditMode = false,
-        savedFullName = profile.displayName,
-        savedPhone = profile.phone,
-        isAuthenticated = true,
-    )
+    // ✅ FIXED: Apply user profile with correct variable names
+    private fun ProfileUiState.applyUserProfile(profile: UserProfile): ProfileUiState {
+        val goalMinutes = profile.dailyGoal.toInt()
+        val todayMinutes = profile.todayStudyTime.toInt()
+        val goalCompleted = todayMinutes >= goalMinutes
+
+        return copy(
+            avatarUrl = profile.avatarUrl ?: this.avatarUrl,
+            displayName = profile.displayName,
+            levelLabel = levelLabelFromXp(profile.xp),
+            fullName = profile.displayName,
+            email = profile.email,
+            phone = profile.phone,
+            streak = profile.streak,
+            xp = profile.xp,
+            dailyGoalMinutes = goalMinutes,
+            todayStudyTime = todayMinutes,
+            dailyGoalXP = profile.dailyGoalXP.toInt(),
+            isGoalCompleted = goalCompleted,
+            isLoadingProfile = false,
+            isSavingProfile = false,
+            isEditMode = false,
+            savedFullName = profile.displayName,
+            savedPhone = profile.phone,
+            isAuthenticated = true,
+        )
+    }
 
     private fun levelLabelFromXp(xp: Long): String {
         val level = (xp / 100).toInt().coerceAtLeast(1)

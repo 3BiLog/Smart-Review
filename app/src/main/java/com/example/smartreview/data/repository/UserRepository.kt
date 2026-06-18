@@ -32,4 +32,13 @@ interface UserRepository {
         email: String,
         displayName: String? = null,
     ): UserProfile
+
+    // ✅ NEW: Update daily goal
+    suspend fun updateDailyGoal(dailyGoal: Long): Boolean
+
+    // ✅ NEW: Track study time
+    suspend fun addStudyTime(minutes: Long): Boolean
+
+    // ✅ NEW: Reset daily study time (called when date changes)
+    suspend fun resetDailyStudyTime(): Boolean
 }

@@ -1,5 +1,6 @@
 package com.example.smartreview.ui.screens.quiz
 
+import android.widget.Toast
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,14 +13,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
-import com.example.smartreview.data.learning.LessonFlowCompletion
-import com.example.smartreview.ui.screens.lessonsummary.lessonSummaryRoute
+import com.example.smartreview.data.learning.StudyTimeManager
 import com.example.smartreview.ui.screens.quizsummary.quizSummaryRoute
 import com.example.smartreview.ui.theme.*
+import kotlinx.coroutines.delay
 
 @Composable
 fun QuizScreen(
@@ -29,10 +31,43 @@ fun QuizScreen(
 ) {
     android.util.Log.d("QuizScreen", ">>> QuizScreen launched with quizId=$quizId")
     val state by vm.uiState.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
     val quiz = state.quiz
+    // ✅ Track goal completion with state
+    var showGoalCompleted by remember { mutableStateOf(false) }
+    var xpEarned by remember { mutableStateOf(0L) }
+    val context = LocalContext.current
+
+    // ✅ Callback to update state when goal completed
+    val onGoalCompleted: (Long) -> Unit = remember {
+        { xp ->
+            xpEarned = xp
+            showGoalCompleted = true
+        }
+    }
+
+    // ✅ Show toast when goal completed
+    if (showGoalCompleted) {
+        LaunchedEffect(showGoalCompleted) {
+            Toast.makeText(
+                context,
+                "Hoàn thành mục tiêu hôm nay! +$xpEarned XP",
+                Toast.LENGTH_LONG
+            ).show()
+            delay(3000)
+            showGoalCompleted = false
+        }
+    }
 
     android.util.Log.d("QuizScreen", "UI rendering, isLoading=${state.isLoading}, quiz=${quiz?.title}, questions=${quiz?.questions?.size}")
+
+    DisposableEffect(Unit) {
+        StudyTimeManager.startTracking("QuizScreen", onGoalCompleted)
+        onDispose {
+            StudyTimeManager.stopTracking()
+        }
+    }
+
+
 
     if (state.isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -105,30 +140,9 @@ fun QuizScreen(
                     total = vm.totalQuestions,
                     onFinish = {
                         val result = vm.completeQuiz() ?: return@QuizFinishedPanel
-                        val linkedLessonId = quiz.lessonId?.takeIf { it.isNotBlank() }
-                        if (linkedLessonId != null) {
-                            LessonFlowCompletion.completeQuizAndPrepareLessonSummary(
-                                scope = scope,
-                                quiz = quiz,
-                                quizResult = result,
-                            ) { handoff ->
-                                if (handoff != null) {
-                                    navController.navigate(lessonSummaryRoute(handoff.lessonSummarySessionId)) {
-                                        launchSingleTop = true
-                                        popUpTo("quiz/$quizId") { inclusive = true }
-                                    }
-                                } else {
-                                    navController.navigate(quizSummaryRoute(result.sessionId)) {
-                                        launchSingleTop = true
-                                        popUpTo("quiz/$quizId") { inclusive = true }
-                                    }
-                                }
-                            }
-                        } else {
-                            navController.navigate(quizSummaryRoute(result.sessionId)) {
-                                launchSingleTop = true
-                                popUpTo("quiz/$quizId") { inclusive = true }
-                            }
+                        navController.navigate(quizSummaryRoute(result.sessionId)) {
+                            launchSingleTop = true
+                            popUpTo("quiz/$quizId") { inclusive = true }
                         }
                     },
                 )

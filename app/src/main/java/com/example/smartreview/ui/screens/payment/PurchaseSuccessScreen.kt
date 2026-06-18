@@ -13,7 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.example.smartreview.ui.navigation.Screen
+import com.example.smartreview.ui.screens.coursedetail.courseDetailRoute
 import com.example.smartreview.ui.theme.*
 
 @Composable
@@ -56,13 +56,24 @@ fun PurchaseSuccessScreen(
             Spacer(Modifier.height(32.dp))
             Button(
                 onClick  = {
-                    navController.popBackStack(Screen.Home.route, false)
+                    navController.navigate(courseDetailRoute(courseId)) {
+                        popUpTo(courseDetailRoute(courseId)) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 },
                 shape    = RoundedCornerShape(16.dp),
                 colors   = ButtonDefaults.buttonColors(containerColor = Primary),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
-                Text("Về trang chủ", fontWeight = FontWeight.SemiBold)
+                Text("Vào khóa học", fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = { navController.popBackStack() },
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) {
+                Text("Quay lại")
             }
         }
     }

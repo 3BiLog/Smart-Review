@@ -45,6 +45,7 @@ import com.example.smartreview.ui.auth.authGraph
 import com.example.smartreview.ui.onboarding.OnboardingRoutes
 import com.example.smartreview.ui.onboarding.onboardingGraph
 import com.example.smartreview.ui.navigation.RouteHelpers
+import com.example.smartreview.ui.screens.payment.paymentGraph
 import com.example.smartreview.ui.screens.reading.READING_ROUTE
 import com.example.smartreview.ui.screens.reading.ReadingScreen
 
@@ -292,6 +293,8 @@ fun SmartReviewNavGraph(navController: NavHostController) {
         composable(NOTIFICATIONS_ROUTE) {
             NotificationsScreen(navController = navController)
         }
+
+        paymentGraph(navController)
 
         composable(FORGOT_PASSWORD_ROUTE) {
             ForgotPasswordScreen(

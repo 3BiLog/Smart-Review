@@ -47,6 +47,7 @@ class FlashcardViewModel(
 
     private var sessionId: String = UUID.randomUUID().toString()
     private var sessionStartedAt: Long = System.currentTimeMillis()
+    private var courseId: String = ""
     private val cardStatuses = mutableMapOf<String, CardStudyStatus>()
     private val progressService = LearningProgressServiceProvider.default
 
@@ -96,6 +97,8 @@ class FlashcardViewModel(
             reviewCount = state.reviewCount,
             studiedCount = state.studiedCount,
             durationMs = System.currentTimeMillis() - sessionStartedAt,
+            lessonId = lessonId,
+            courseId = courseId,
         )
         FlashcardSessionStore.put(result)
         viewModelScope.launch { progressService.clearFlashcardInProgress() }
@@ -120,6 +123,8 @@ class FlashcardViewModel(
         }
 
         android.util.Log.d("FlashcardViewModel", "Deck found: ${deck.title}, cards=${deck.cards.size}")
+
+        courseId = deck.courseId.orEmpty()
 
         cardStatuses.clear()
         deck.cards.forEach { card -> cardStatuses[card.id] = CardStudyStatus.UNSEEN }

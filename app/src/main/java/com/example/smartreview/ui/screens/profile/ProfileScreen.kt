@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.smartreview.data.learning.StudyTimeManager
 import com.example.smartreview.ui.auth.AuthRoutes
 import com.example.smartreview.ui.components.SmartReviewBottomBar
 import com.example.smartreview.ui.screens.profile.components.ChangePasswordDialog
@@ -32,6 +33,7 @@ fun ProfileScreen(
     vm: ProfileViewModel = viewModel(),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val studyMinutes by StudyTimeManager.totalStudyMinutes.collectAsState()
 
     Scaffold(
         containerColor = Background,
@@ -131,19 +133,21 @@ fun ProfileScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     listOf(15, 30, 60).forEach { mins ->
                         val selected = state.dailyGoalMinutes == mins
+                        val isCompleted = state.isGoalCompleted && selected
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(64.dp)
+                                .height(72.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
                                     if (selected) Brush.linearGradient(listOf(GradientStart, GradientEnd))
+                                    else if (isCompleted) Brush.linearGradient(listOf(Secondary.copy(0.2f), Secondary.copy(0.1f)))
                                     else Brush.linearGradient(listOf(SurfaceContainer, SurfaceContainer)),
                                 )
                                 .border(
                                     width = if (selected) 0.dp else 1.dp,
-                                    color = GlassBorder,
+                                    color = if (isCompleted && !selected) Secondary.copy(0.4f) else GlassBorder,
                                     shape = RoundedCornerShape(12.dp),
                                 )
                                 .clickable { vm.selectGoal(mins) },
@@ -153,15 +157,55 @@ fun ProfileScreen(
                                     "$mins",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (selected) Color.White else OnSurface,
+                                    color = when {
+                                        selected -> Color.White
+                                        isCompleted -> Secondary
+                                        else -> OnSurface
+                                    },
                                 )
                                 Text(
-                                    "PHÚT",
+                                    if (isCompleted && selected) "Hoàn thành!" else "PHÚT",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (selected) Color.White.copy(0.8f)
-                                    else OnSurfaceVariant,
+                                    color = when {
+                                        selected -> Color.White.copy(0.8f)
+                                        isCompleted -> Secondary
+                                        else -> OnSurfaceVariant
+                                    },
                                 )
                             }
+                        }
+                    }
+                }
+
+                // ✅ Show today's progress with real-time data
+                if (state.isAuthenticated) {
+                    Spacer(Modifier.height(8.dp))
+                    val totalMinutes = state.todayStudyTime + studyMinutes.toInt()
+                    val goalMinutes = state.dailyGoalMinutes
+                    val isCompleted = totalMinutes >= goalMinutes
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            "Hôm nay: $totalMinutes phút",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = OnSurfaceVariant,
+                        )
+                        if (isCompleted) {
+                            Text(
+                                "✅ Đã đạt mục tiêu! +${state.dailyGoalXP} XP",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Secondary,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        } else {
+                            Text(
+                                "Còn ${(goalMinutes - totalMinutes).coerceAtLeast(0)} phút",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Primary,
+                            )
                         }
                     }
                 }

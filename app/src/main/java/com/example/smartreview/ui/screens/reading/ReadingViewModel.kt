@@ -5,9 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.smartreview.data.model.ReadingLesson
+import com.example.smartreview.data.model.LessonType
 import com.example.smartreview.data.repository.firestore.FirestoreReadingRepository
 import com.example.smartreview.data.repository.UserRepository
 import com.example.smartreview.data.repository.UserRepositoryProvider
+import com.example.smartreview.data.repository.CourseRepositoryProvider
+import com.example.smartreview.data.learning.LearningProgressServiceProvider
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -24,7 +27,12 @@ data class ReadingUiState(
     val isCompleted: Boolean = false,
     val isCompleting: Boolean = false,
     val showSuccess: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    // ✅ Thêm state cho next lesson
+    val hasNextLesson: Boolean = false,
+    val nextLessonId: String? = null,
+    val nextLessonTitle: String? = null,
+    val nextLessonType: LessonType? = null,
 )
 
 class ReadingViewModel(
@@ -37,10 +45,12 @@ class ReadingViewModel(
     val uiState: StateFlow<ReadingUiState> = _uiState.asStateFlow()
 
     private val lessonId: String = savedStateHandle["lessonId"] ?: ""
+    private val progressService = LearningProgressServiceProvider.default
 
     init {
         android.util.Log.d("ReadingViewModel", "Initializing with lessonId=$lessonId")
         loadReading()
+        checkCompletionStatus()
     }
 
     private fun loadReading() {
@@ -49,11 +59,19 @@ class ReadingViewModel(
             try {
                 val reading = readingRepository.getReadingLesson(lessonId)
                 android.util.Log.d("ReadingViewModel", "Reading loaded: ${reading != null}")
+
+                // ✅ Kiểm tra lesson tiếp theo
+                val nextLessonInfo = getNextLessonAfterReading(reading?.courseId)
+
                 _uiState.update {
                     it.copy(
                         reading = reading,
                         isLoading = false,
-                        error = if (reading == null) "Không tìm thấy bài đọc" else null
+                        error = if (reading == null) "Không tìm thấy bài đọc" else null,
+                        hasNextLesson = nextLessonInfo?.hasNext ?: false,
+                        nextLessonId = nextLessonInfo?.nextLessonId,
+                        nextLessonTitle = nextLessonInfo?.nextLessonTitle,
+                        nextLessonType = nextLessonInfo?.nextLessonType,
                     )
                 }
             } catch (e: Exception) {
@@ -68,9 +86,59 @@ class ReadingViewModel(
         }
     }
 
+    // ✅ Kiểm tra trạng thái hoàn thành từ Firestore
+    private fun checkCompletionStatus() {
+        viewModelScope.launch {
+            try {
+                val userId = userRepository.getCurrentUserProfile()?.uid ?: return@launch
+                val isCompleted = progressService.isLessonCompleted(lessonId)
+                _uiState.update { it.copy(isCompleted = isCompleted) }
+                android.util.Log.d("ReadingViewModel", "Completion status: $isCompleted")
+            } catch (e: Exception) {
+                android.util.Log.e("ReadingViewModel", "Error checking completion", e)
+            }
+        }
+    }
+
+    // ✅ Tìm lesson tiếp theo sau reading
+    private suspend fun getNextLessonAfterReading(courseId: String?): NextLessonInfo? {
+        if (courseId.isNullOrBlank()) return null
+
+        val course = CourseRepositoryProvider.default.getCourseById(courseId) ?: return null
+
+        var foundCurrentLesson = false
+
+        for (module in course.modules) {
+            for (lesson in module.lessons) {
+                if (foundCurrentLesson) {
+                    return NextLessonInfo(
+                        hasNext = true,
+                        nextLessonId = lesson.id,
+                        nextLessonTitle = lesson.title,
+                        nextLessonType = lesson.lessonType,
+                        nextModuleId = module.id
+                    )
+                }
+
+                if (lesson.id == lessonId) {
+                    foundCurrentLesson = true
+                }
+            }
+        }
+
+        return NextLessonInfo(hasNext = false)
+    }
+
     fun completeReading() {
         viewModelScope.launch {
             val reading = _uiState.value.reading ?: return@launch
+
+            // ✅ Kiểm tra đã hoàn thành chưa
+            if (_uiState.value.isCompleted) {
+                android.util.Log.d("ReadingViewModel", "Already completed")
+                return@launch
+            }
+
             val userId = userRepository.getCurrentUserProfile()?.uid ?: run {
                 _uiState.update { it.copy(error = "Vui lòng đăng nhập để nhận XP") }
                 return@launch
@@ -79,14 +147,16 @@ class ReadingViewModel(
             _uiState.update { it.copy(isCompleting = true, error = null) }
 
             try {
-                // Add XP directly via Firestore
-                val firestore = FirebaseFirestore.getInstance()
+                // ✅ 1. Đánh dấu lesson đã hoàn thành
+                progressService.markLessonCompleted(lessonId)
+                android.util.Log.d("ReadingViewModel", "Lesson marked completed: $lessonId")
 
-                // 1. Update user's totalXP
+                // ✅ 2. Cộng XP
+                val firestore = FirebaseFirestore.getInstance()
                 val userRef = firestore.collection("users").document(userId)
                 userRef.update("totalXP", FieldValue.increment(reading.xpReward)).await()
 
-                // 2. Add XP log
+                // ✅ 3. Add XP log
                 val xpLog = mapOf(
                     "userId" to userId,
                     "amount" to reading.xpReward,
@@ -141,3 +211,12 @@ class ReadingViewModel(
             }
     }
 }
+
+// ✅ Data class cho next lesson info
+data class NextLessonInfo(
+    val hasNext: Boolean,
+    val nextLessonId: String? = null,
+    val nextLessonTitle: String? = null,
+    val nextLessonType: LessonType? = null,
+    val nextModuleId: String? = null,
+)

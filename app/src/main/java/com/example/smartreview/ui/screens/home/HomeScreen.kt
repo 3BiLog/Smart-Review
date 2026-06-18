@@ -19,6 +19,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.smartreview.data.learning.StudyTimeManager
 import com.example.smartreview.ui.components.SectionHeader
 import com.example.smartreview.ui.components.SmartReviewBottomBar
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateContinueLearning
@@ -35,9 +36,18 @@ fun HomeScreen(
     val state by vm.uiState.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
+    // ✅ Observe study time from StudyTimeManager
+    val studyMinutes by StudyTimeManager.totalStudyMinutes.collectAsState()
+
+    // ✅ Calculate real-time study time
+    val currentStudyMinutes = state.goalCurrent + studyMinutes.toInt()
+    val isGoalCompleted = currentStudyMinutes >= state.goalTarget
+
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) vm.refreshResumeLearning()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                vm.refreshResumeLearning()
+            }
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
@@ -63,10 +73,15 @@ fun HomeScreen(
         ) {
             Spacer(Modifier.height(16.dp))
 
+            // ✅ Update Daily Goal Card with real-time data
             HomeDailyGoalCard(
-                progress = state.goalProgress,
-                current = state.goalCurrent,
+                progress = if (state.goalTarget > 0)
+                    (currentStudyMinutes.toFloat() / state.goalTarget).coerceAtMost(1f)
+                else 0f,
+                current = currentStudyMinutes,
                 target = state.goalTarget,
+                xpEarned = state.dailyGoalXP,
+                isCompleted = isGoalCompleted,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
 
@@ -96,7 +111,7 @@ fun HomeScreen(
                                 id = course.id,
                                 title = course.title,
                                 subtitle = course.description.take(60),
-                                imageUrl = course.imageUrl,  // ✅ Đã sửa
+                                imageUrl = course.imageUrl,
                                 progress = progress,
                                 timeLeft = timeLeft,
                             ),

@@ -4,8 +4,6 @@ import com.example.smartreview.data.model.UserProfile
 import com.example.smartreview.data.remote.firestore.UserFirestoreMapper
 import com.example.smartreview.data.remote.firestore.UserFirestorePaths
 import com.example.smartreview.data.repository.UserRepository
-// TEMPORARILY COMMENTED - Fix later when mock files are restored
-// import com.example.smartreview.data.repository.mock.MockUserRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -17,6 +15,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import com.google.firebase.Timestamp
+import java.util.Calendar
 
 /**
  * Firestore-backed user profiles aligned with production users/{uid} schema.
@@ -31,7 +30,6 @@ import com.google.firebase.Timestamp
 class FirestoreUserRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance(),
-    // TEMPORARILY CHANGED: Use empty fallback instead of Mock
     private val fallback: UserRepository = EmptyUserFallback(),
 ) : UserRepository {
 
@@ -107,6 +105,112 @@ class FirestoreUserRepository(
         }
     }
 
+    // ✅ NEW: Update daily goal
+    override suspend fun updateDailyGoal(dailyGoal: Long): Boolean = withContext(Dispatchers.IO) {
+        val uid = firebaseAuth.currentUser?.uid ?: return@withContext false
+        try {
+            val updates = UserFirestoreMapper.updateDailyGoalMap(dailyGoal)
+            userDocument(uid).set(updates, SetOptions.merge()).await()
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    // ✅ NEW: Add study time and check for goal completion
+    override suspend fun addStudyTime(minutes: Long): Boolean = withContext(Dispatchers.IO) {
+        val uid = firebaseAuth.currentUser?.uid ?: return@withContext false
+
+        try {
+            // Get current profile
+            val profile = fetchUserProfile(uid) ?: return@withContext false
+
+            // Check if need to reset daily (new day)
+            val shouldReset = shouldResetDailyStudyTime(profile)
+
+            val currentStudyTime = if (shouldReset) 0L else profile.todayStudyTime
+            val newStudyTime = currentStudyTime + minutes
+
+            // Check if goal is completed
+            val goal = profile.dailyGoal
+            val wasCompleted = currentStudyTime >= goal
+            val isNowCompleted = newStudyTime >= goal
+
+            val goalJustCompleted = !wasCompleted && isNowCompleted
+            val xpReward = if (goalJustCompleted) calculateDailyGoalXP(goal) else 0L
+            val xpEarned = if (goalJustCompleted) xpReward else profile.dailyGoalXP
+
+            val updates = mutableMapOf<String, Any>(
+                UserFirestorePaths.Fields.UPDATED_AT to Timestamp.now(),
+            )
+
+            if (shouldReset) {
+                updates[UserFirestorePaths.Fields.TODAY_STUDY_TIME] = minutes
+                updates[UserFirestorePaths.Fields.LAST_RESET_DATE] = Timestamp.now()
+                updates[UserFirestorePaths.Fields.DAILY_GOAL_XP] =
+                    if (isNowCompleted) calculateDailyGoalXP(goal) else 0L
+            } else {
+                updates[UserFirestorePaths.Fields.TODAY_STUDY_TIME] = newStudyTime
+                updates[UserFirestorePaths.Fields.DAILY_GOAL_XP] = xpEarned
+            }
+
+            if (goalJustCompleted) {
+                val newTotalXp = profile.xp + xpReward
+                updates[UserFirestorePaths.Fields.TOTAL_XP] = newTotalXp
+                updates[UserFirestorePaths.Fields.XP] = newTotalXp
+            }
+
+            userDocument(uid).set(updates, SetOptions.merge()).await()
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    // ✅ NEW: Reset daily study time
+    override suspend fun resetDailyStudyTime(): Boolean = withContext(Dispatchers.IO) {
+        val uid = firebaseAuth.currentUser?.uid ?: return@withContext false
+        try {
+            val updates = UserFirestoreMapper.resetTodayStudyTimeMap()
+            userDocument(uid).set(updates, SetOptions.merge()).await()
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    // Helper: Check if daily study time should be reset
+    private fun shouldResetDailyStudyTime(profile: UserProfile): Boolean {
+        val lastReset = profile.lastResetDate?.toDate() ?: return true
+        val today = getTodayDate()
+        val lastResetDate = getDateWithoutTime(lastReset)
+        return today != lastResetDate
+    }
+
+    private fun getTodayDate(): String = formatDateKey(Calendar.getInstance())
+
+    private fun getDateWithoutTime(date: java.util.Date): String {
+        val calendar = Calendar.getInstance()
+        calendar.time = date
+        return formatDateKey(calendar)
+    }
+
+    private fun formatDateKey(calendar: Calendar): String {
+        val month = calendar.get(Calendar.MONTH) + 1
+        val day = calendar.get(Calendar.DAY_OF_MONTH)
+        return "${calendar.get(Calendar.YEAR)}-$month-$day"
+    }
+
+    // Calculate XP based on daily goal
+    private fun calculateDailyGoalXP(goalMinutes: Long): Long {
+        return when (goalMinutes) {
+            15L -> 10L
+            30L -> 25L
+            60L -> 50L
+            else -> 20L
+        }
+    }
+
     private suspend fun fetchUserProfile(uid: String): UserProfile? = try {
         val snapshot = userDocument(uid).get().await()
         if (!snapshot.exists()) null
@@ -141,7 +245,12 @@ class FirestoreUserRepository(
         updatedAt = Timestamp.now(),
         bannedAt = null,
         bannedUntil = null,
-        bannedReason = null
+        bannedReason = null,
+        // ✅ NEW: Default values for daily goal fields
+        dailyGoal = 30,
+        todayStudyTime = 0,
+        lastResetDate = Timestamp.now(),
+        dailyGoalXP = 0,
     )
 }
 
@@ -160,7 +269,17 @@ private class EmptyUserFallback : UserRepository {
         return UserProfile(
             uid = uid,
             displayName = displayName ?: email.substringBefore("@"),
-            email = email
+            email = email,
+            // ✅ NEW: Default values
+            dailyGoal = 30,
+            todayStudyTime = 0,
+            lastResetDate = Timestamp.now(),
+            dailyGoalXP = 0,
         )
     }
+
+    // ✅ NEW: Implement new functions
+    override suspend fun updateDailyGoal(dailyGoal: Long): Boolean = false
+    override suspend fun addStudyTime(minutes: Long): Boolean = false
+    override suspend fun resetDailyStudyTime(): Boolean = false
 }

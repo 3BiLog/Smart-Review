@@ -57,6 +57,8 @@ data class FlashcardSessionResult(
     val reviewCount: Int,
     val studiedCount: Int,
     val durationMs: Long,
+    val lessonId: String = "",
+    val courseId: String = "",
     val completedAt: Long = System.currentTimeMillis(),
 ) {
     val remainingCount: Int get() = (totalCards - studiedCount).coerceAtLeast(0)

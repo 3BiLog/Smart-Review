@@ -18,6 +18,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Emulator: 10.0.2.2 = host localhost. Override in local.properties:
+        // PAYMENT_API_BASE_URL=https://your-app.vercel.app/api
+        val paymentApiUrl = project.findProperty("PAYMENT_API_BASE_URL") as String?
+            ?: "http://10.0.2.2:3000/api"
+        buildConfigField("String", "PAYMENT_API_BASE_URL", "\"$paymentApiUrl\"")
     }
 
     buildTypes {
@@ -35,6 +41,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -54,9 +61,18 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
+    implementation(libs.androidx.material3)
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-process:2.8.7")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // ✅ JSON parsing
+    implementation("com.google.code.gson:gson:2.10.1")
 
     // Single Compose BOM — avoids compile/runtime foundation-layout version skew (FlowRow crash)
     val composeBom = platform(libs.androidx.compose.bom)

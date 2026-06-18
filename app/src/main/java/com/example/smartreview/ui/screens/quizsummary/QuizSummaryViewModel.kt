@@ -9,12 +9,13 @@ import com.example.smartreview.data.quiz.QuizSessionStore
 import com.example.smartreview.data.repository.GamificationServiceProvider
 import com.example.smartreview.data.repository.LessonRepositoryProvider
 import com.example.smartreview.data.repository.QuizRepositoryProvider
+import com.example.smartreview.data.repository.CourseRepositoryProvider
+import com.example.smartreview.data.model.LessonType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 data class QuizSummaryUiState(
     val courseId: String = "",
@@ -29,7 +30,14 @@ data class QuizSummaryUiState(
     val rewardGranted: Boolean = false,
     val rewardMessage: String? = null,
     val hasSessionData: Boolean = false,
-    val isLoading: Boolean = true,  // ✅ Thêm loading state
+    val isLoading: Boolean = true,
+    val hasNextLesson: Boolean = false,
+    val nextLessonId: String? = null,
+    val nextLessonTitle: String? = null,
+    val nextLessonType: LessonType? = null,
+    val nextLessonQuizId: String? = null,
+    val isLastLessonInModule: Boolean = false,
+    val isLastModule: Boolean = false,
 )
 
 class QuizSummaryViewModel(
@@ -37,6 +45,9 @@ class QuizSummaryViewModel(
 ) : ViewModel() {
 
     private val gamificationService = GamificationServiceProvider.default
+    private val courseRepository = CourseRepositoryProvider.default
+    private val lessonRepository = LessonRepositoryProvider.default
+    private val quizRepository = QuizRepositoryProvider.default
 
     private val _uiState = MutableStateFlow(QuizSummaryUiState(isLoading = true))
     val uiState: StateFlow<QuizSummaryUiState> = _uiState.asStateFlow()
@@ -45,15 +56,36 @@ class QuizSummaryViewModel(
         loadSessionData()
     }
 
-    // ✅ Sửa: Tách logic vào suspend function
     private fun loadSessionData() {
         viewModelScope.launch {
             val session = QuizSessionStore.consume(sessionId)
+
             if (session != null) {
-                val courseId = resolveCourseId(session.quizId)
+                val quiz = quizRepository.getQuiz(session.quizId)
+                val lessonId = session.lessonId.takeIf { it.isNotBlank() } ?: quiz?.lessonId
+                val courseId = quiz?.courseId?.takeIf { it.isNotBlank() }
+                    ?: resolveCourseIdFromLesson(lessonId)
+
+                val currentLessonInfo = if (!courseId.isNullOrBlank() && !lessonId.isNullOrBlank()) {
+                    getCurrentLessonInfo(courseId, lessonId)
+                } else {
+                    null
+                }
+
+                val nextLessonInfo = if (
+                    !courseId.isNullOrBlank() &&
+                    !lessonId.isNullOrBlank() &&
+                    currentLessonInfo != null &&
+                    !currentLessonInfo.isLastInModule
+                ) {
+                    getNextLessonInModule(courseId, lessonId)
+                } else {
+                    null
+                }
+
                 _uiState.update {
                     it.copy(
-                        courseId = courseId,
+                        courseId = courseId.orEmpty(),
                         quizTitle = session.quizTitle,
                         correctCount = session.correctCount,
                         totalQuestions = session.totalQuestions,
@@ -62,14 +94,71 @@ class QuizSummaryViewModel(
                         studyTime = session.formattedStudyTime(),
                         hasSessionData = true,
                         isLoading = false,
+                        hasNextLesson = nextLessonInfo?.hasNext ?: false,
+                        nextLessonId = nextLessonInfo?.nextLessonId,
+                        nextLessonTitle = nextLessonInfo?.nextLessonTitle,
+                        nextLessonType = nextLessonInfo?.nextLessonType,
+                        nextLessonQuizId = nextLessonInfo?.nextLessonQuizId,
+                        isLastLessonInModule = currentLessonInfo?.isLastInModule ?: false,
+                        isLastModule = currentLessonInfo?.isLastModule ?: false,
                     )
                 }
+
                 LearningProgressServiceProvider.default.markQuizCompleted(session.quizId)
+                if (!lessonId.isNullOrBlank()) {
+                    LearningProgressServiceProvider.default.markLessonCompleted(lessonId)
+                }
                 awardQuizXp(session.quizId)
             } else {
                 _uiState.update { it.copy(isLoading = false) }
             }
         }
+    }
+
+    /** Tìm bài học tiếp theo trong cùng module. */
+    private suspend fun getNextLessonInModule(courseId: String, currentLessonId: String): NextLessonInfo? {
+        val course = courseRepository.getCourseById(courseId) ?: return null
+
+        for (module in course.modules) {
+            val lessonIndex = module.lessons.indexOfFirst { it.id == currentLessonId }
+            if (lessonIndex < 0) continue
+
+            val nextIndex = lessonIndex + 1
+            if (nextIndex >= module.lessons.size) {
+                return NextLessonInfo(hasNext = false)
+            }
+
+            val nextLesson = module.lessons[nextIndex]
+            return NextLessonInfo(
+                hasNext = true,
+                nextLessonId = nextLesson.id,
+                nextLessonTitle = nextLesson.title.ifBlank { "Bài học tiếp theo" },
+                nextLessonType = nextLesson.lessonType,
+                nextModuleId = module.id,
+                nextLessonQuizId = nextLesson.quizId ?: nextLesson.id,
+            )
+        }
+
+        return NextLessonInfo(hasNext = false)
+    }
+
+    private suspend fun getCurrentLessonInfo(courseId: String, currentLessonId: String): CurrentLessonInfo? {
+        val course = courseRepository.getCourseById(courseId) ?: return null
+
+        for (moduleIndex in course.modules.indices) {
+            val module = course.modules[moduleIndex]
+            val lessonIndex = module.lessons.indexOfFirst { it.id == currentLessonId }
+            if (lessonIndex < 0) continue
+
+            return CurrentLessonInfo(
+                isLastInModule = lessonIndex == module.lessons.size - 1,
+                isLastModule = moduleIndex == course.modules.size - 1,
+                moduleIndex = moduleIndex,
+                lessonIndex = lessonIndex,
+            )
+        }
+
+        return null
     }
 
     private suspend fun awardQuizXp(quizId: String) {
@@ -104,11 +193,9 @@ class QuizSummaryViewModel(
         }
     }
 
-    // ✅ Sửa: resolveCourseId là suspend function
-    private suspend fun resolveCourseId(quizId: String): String {
-        val quiz = QuizRepositoryProvider.default.getQuiz(quizId) ?: return ""
-        val lessonId = quiz.lessonId ?: return ""
-        return LessonRepositoryProvider.default.getLesson(lessonId)?.courseId.orEmpty()
+    private suspend fun resolveCourseIdFromLesson(lessonId: String?): String {
+        if (lessonId.isNullOrBlank()) return ""
+        return lessonRepository.getLesson(lessonId)?.courseId.orEmpty()
     }
 
     companion object {
@@ -122,3 +209,19 @@ class QuizSummaryViewModel(
             }
     }
 }
+
+data class NextLessonInfo(
+    val hasNext: Boolean,
+    val nextLessonId: String? = null,
+    val nextLessonTitle: String? = null,
+    val nextLessonType: LessonType? = null,
+    val nextModuleId: String? = null,
+    val nextLessonQuizId: String? = null,
+)
+
+data class CurrentLessonInfo(
+    val isLastInModule: Boolean,
+    val isLastModule: Boolean,
+    val moduleIndex: Int,
+    val lessonIndex: Int,
+)

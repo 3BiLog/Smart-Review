@@ -1,5 +1,6 @@
 package com.example.smartreview.ui.screens.lessonplayer
 
+import android.widget.Toast
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -25,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.example.smartreview.data.learning.StudyTimeManager
 import com.example.smartreview.data.model.LessonItem
 import com.example.smartreview.data.model.LessonType
 import com.example.smartreview.ui.components.YoutubeLessonPlayer
@@ -32,6 +35,7 @@ import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLess
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
 import com.example.smartreview.ui.navigation.RouteHelpers
 import com.example.smartreview.ui.theme.*
+import kotlinx.coroutines.delay
 
 // ─── Route ───────────────────────────────────────────────────────────────────
 const val LESSON_PLAYER_ROUTE = "lesson_player/{lessonId}"
@@ -49,6 +53,31 @@ fun LessonVideoPlayerScreen(
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     val lesson = state.currentLesson ?: return
+    // ✅ Track goal completion with state
+    var showGoalCompleted by remember { mutableStateOf(false) }
+    var xpEarned by remember { mutableStateOf(0L) }
+    val context = LocalContext.current
+
+    // ✅ Callback to update state when goal completed
+    val onGoalCompleted: (Long) -> Unit = remember {
+        { xp ->
+            xpEarned = xp
+            showGoalCompleted = true
+        }
+    }
+
+    // ✅ Show toast when goal completed
+    if (showGoalCompleted) {
+        LaunchedEffect(showGoalCompleted) {
+            Toast.makeText(
+                context,
+                "Hoàn thành mục tiêu hôm nay! +$xpEarned XP",
+                Toast.LENGTH_LONG
+            ).show()
+            delay(3000)
+            showGoalCompleted = false
+        }
+    }
 
     DisposableEffect(lessonId) {
         android.util.Log.d("LessonVideoPlayerScreen", "Screen CREATED for lesson: $lessonId")
@@ -56,6 +85,14 @@ fun LessonVideoPlayerScreen(
             android.util.Log.d("LessonVideoPlayerScreen", "Screen DESTROYED for lesson: $lessonId")
         }
     }
+
+    DisposableEffect(Unit) {
+        StudyTimeManager.startTracking("LessonVideoPlayerScreen", onGoalCompleted)
+        onDispose {
+            StudyTimeManager.stopTracking()
+        }
+    }
+
 
     // ✅ Dialog xác nhận hoàn thành
     if (state.showCompleteDialog) {
@@ -165,26 +202,83 @@ fun LessonVideoPlayerScreen(
                     .padding(padding),
                 contentPadding = PaddingValues(bottom = 24.dp),
             ) {
+                // ── 1. Lesson Player Area ──────────────────────────────────────
                 item {
                     val hasBlocks = state.hasContentBlocks
                     val nextLesson = state.upNextLessons.firstOrNull()
                     val ctaText = if (hasBlocks) "Tiếp tục — Tóm tắt bài học" else (if (nextLesson != null) "Bài học tiếp theo" else "Hoàn thành khóa học")
 
-                    VideoPlayerArea(
-                        videoId = state.youtubeVideoId,
-                        thumbnailUrl = lesson.thumbnailUrl,
-                        videoError = state.videoError,
-                        ctaText = ctaText,
-                        onContinue = {
-                            if (hasBlocks) {
-                                navController.navigateLessonContent(lesson.id)
-                            } else {
-                                // ✅ Hiển thị dialog xác nhận thay vì chuyển thẳng
-                                vm.showCompleteConfirmation()
-                                vm.clearSelectedNextLesson()
-                            }
-                        },
-                    )
+                    // ✅ Hiển thị component theo loại lesson
+                    when (lesson.lessonType) {
+                        LessonType.VIDEO, LessonType.UNKNOWN -> {
+                            VideoPlayerArea(
+                                videoId = state.youtubeVideoId,
+                                thumbnailUrl = lesson.thumbnailUrl,
+                                videoError = state.videoError,
+                                ctaText = ctaText,
+                                onContinue = {
+                                    if (hasBlocks) {
+                                        navController.navigateLessonContent(lesson.id)
+                                    } else {
+                                        val nextLessonCandidate = state.upNextLessons.firstOrNull()
+                                        if (nextLessonCandidate != null) {
+                                            // Same flow as "Up Next": preselect next lesson then confirm.
+                                            vm.setSelectedNextLesson(nextLessonCandidate)
+                                        } else {
+                                            vm.clearSelectedNextLesson()
+                                        }
+                                        vm.showCompleteConfirmation()
+                                    }
+                                },
+                            )
+                        }
+                        LessonType.QUIZ -> {
+                            QuizLessonPreview(
+                                lesson = lesson,
+                                onStartQuiz = {
+                                    val quizIdToUse = lesson.quizId?.takeIf { it.isNotBlank() } ?: lesson.id
+                                    navController.navigate(com.example.smartreview.ui.screens.quiz.quizRoute(quizIdToUse)) {
+                                        launchSingleTop = false
+                                        restoreState = false
+                                    }
+                                },
+                                onComplete = {
+                                    vm.showCompleteConfirmation()
+                                    vm.clearSelectedNextLesson()
+                                },
+                                ctaText = ctaText
+                            )
+                        }
+                        LessonType.READING -> {
+                            ReadingLessonPreview(
+                                lesson = lesson,
+                                onStartReading = {
+                                    navController.navigateLessonContent(lesson.id)
+                                },
+                                onComplete = {
+                                    vm.showCompleteConfirmation()
+                                    vm.clearSelectedNextLesson()
+                                },
+                                ctaText = ctaText
+                            )
+                        }
+                        LessonType.FLASHCARD -> {
+                            FlashcardLessonPreview(
+                                lesson = lesson,
+                                onStartFlashcard = {
+                                    navController.navigate("flashcard/${lesson.id}") {
+                                        launchSingleTop = false
+                                        restoreState = false
+                                    }
+                                },
+                                onComplete = {
+                                    vm.showCompleteConfirmation()
+                                    vm.clearSelectedNextLesson()
+                                },
+                                ctaText = ctaText
+                            )
+                        }
+                    }
                 }
 
                 item {
@@ -220,10 +314,7 @@ fun LessonVideoPlayerScreen(
                         item = playlistItem,
                         isCurrent = playlistItem.isCurrentlyPlaying,
                         onClick = {
-                            // ✅ Kiểm tra nếu đang ở lesson hiện tại thì không làm gì
                             if (playlistItem.id == lesson.id) return@PlaylistItem
-
-                            // ✅ Hiển thị dialog xác nhận trước khi chuyển
                             vm.setSelectedNextLesson(playlistItem)
                             vm.showCompleteConfirmation()
                         },
@@ -298,7 +389,6 @@ private fun VideoPlayerArea(
                 .background(Color.Black),
         ) {
             if (videoId != null) {
-                // ✅ Dùng key với cả videoId để force reset
                 androidx.compose.runtime.key("player_$videoId") {
                     YoutubeLessonPlayer(
                         videoId = videoId,
@@ -329,6 +419,285 @@ private fun VideoPlayerArea(
         }
         Button(
             onClick = onContinue,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Primary),
+        ) {
+            Icon(Icons.Default.ArrowForward, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(ctaText)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUIZ LESSON PREVIEW
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun QuizLessonPreview(
+    lesson: LessonItem,
+    onStartQuiz: () -> Unit,
+    onComplete: () -> Unit,
+    ctaText: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(240.dp)
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF1A1A2E),
+                            Color(0xFF16213E),
+                            Color(0xFF0F3460)
+                        )
+                    )
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Primary.copy(0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Quiz,
+                        contentDescription = null,
+                        tint = Primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    "Bài học dạng Quiz",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    "Hãy chuẩn bị tinh thần để làm bài kiểm tra!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(0.7f)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onStartQuiz,
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Bắt đầu làm quiz")
+                }
+            }
+        }
+        Button(
+            onClick = onComplete,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Primary),
+        ) {
+            Icon(Icons.Default.ArrowForward, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(ctaText)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// READING LESSON PREVIEW
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun ReadingLessonPreview(
+    lesson: LessonItem,
+    onStartReading: () -> Unit,
+    onComplete: () -> Unit,
+    ctaText: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(240.dp)
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF1B4332),
+                            Color(0xFF2D6A4F),
+                            Color(0xFF40916C)
+                        )
+                    )
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Secondary.copy(0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Description,
+                        contentDescription = null,
+                        tint = Secondary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    "Bài học dạng Reading",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    "Đọc và tìm hiểu nội dung bài học",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(0.7f)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onStartReading,
+                    colors = ButtonDefaults.buttonColors(containerColor = Secondary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Description, null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Bắt đầu đọc")
+                }
+            }
+        }
+        Button(
+            onClick = onComplete,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Primary),
+        ) {
+            Icon(Icons.Default.ArrowForward, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(ctaText)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FLASHCARD LESSON PREVIEW
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun FlashcardLessonPreview(
+    lesson: LessonItem,
+    onStartFlashcard: () -> Unit,
+    onComplete: () -> Unit,
+    ctaText: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(240.dp)
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF4A1942),
+                            Color(0xFF6B2D5C),
+                            Color(0xFF8B4A7A)
+                        )
+                    )
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Tertiary.copy(0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Style,
+                        contentDescription = null,
+                        tint = Tertiary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    "Bài học dạng Flashcard",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    "Học từ vựng với thẻ ghi nhớ",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(0.7f)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onStartFlashcard,
+                    colors = ButtonDefaults.buttonColors(containerColor = Tertiary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Style, null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Bắt đầu học flashcard")
+                }
+            }
+        }
+        Button(
+            onClick = onComplete,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),

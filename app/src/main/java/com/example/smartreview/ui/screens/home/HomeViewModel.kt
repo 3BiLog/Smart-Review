@@ -41,17 +41,19 @@ data class RecommendedCard(
 )
 
 data class HomeUiState(
-    val userName:       String       = "Scholar",
-    val level:          Int          = 12,
-    val xp:             Long         = 1250,
-    val streak:         Long         = 5,
-    val goalProgress:   Float        = 0.6f,
-    val goalCurrent:    Int          = 15,
-    val goalTarget:     Int          = 25,
+    val userName: String = "Scholar",
+    val level: Int = 12,
+    val xp: Long = 1250,
+    val streak: Long = 5,
+    val goalProgress: Float = 0.6f,
+    val goalCurrent: Int = 15,
+    val goalTarget: Int = 25,
+    val dailyGoalXP: Int = 0,
+    val isGoalCompleted: Boolean = false,
     val continueCourses: List<CourseCard> = emptyList(),
     val inProgressCourses: List<Course> = emptyList(),
     val completedCourses: List<Course> = emptyList(),
-    val recommended:    List<RecommendedCard> = emptyList(),
+    val recommended: List<RecommendedCard> = emptyList(),
     val isLoading: Boolean = true,
 )
 
@@ -255,6 +257,11 @@ class HomeViewModel(
                     val xpValue = profile.xp
                     val streakValue = profile.streak
                     val levelValue = (xpValue / 100).toInt().coerceAtLeast(1)
+                    // ✅ Update daily goal info
+                    val goalMinutes = profile.dailyGoal.toInt()
+                    val todayMinutes = profile.todayStudyTime.toInt()
+                    val goalCompleted = todayMinutes >= goalMinutes
+                    val progress = if (goalMinutes > 0) todayMinutes.toFloat() / goalMinutes else 0f
 
                     _uiState.update {
                         it.copy(
@@ -262,6 +269,11 @@ class HomeViewModel(
                             xp = xpValue,
                             streak = streakValue,
                             level = levelValue,
+                            goalProgress = progress.coerceAtMost(1f),
+                            goalCurrent = todayMinutes,
+                            goalTarget = goalMinutes,
+                            dailyGoalXP = profile.dailyGoalXP.toInt(),
+                            isGoalCompleted = goalCompleted,
                         )
                     }
                 }

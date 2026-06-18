@@ -17,6 +17,18 @@ service cloud.firestore {
           && !exists(/databases/$(database)/documents/users/$(userId)/rewardLedger/$(ledgerId));
         allow update, delete: if false;
       }
+
+      // Course enrollments — written by payment webhook (Admin SDK); users can read own enrollments
+      match /enrollments/{courseId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow write: if false;
     }
 
     // Leaderboard reads users collection — keep read open for authenticated users.
