@@ -10,14 +10,9 @@ data class AuthSessionState(
     val uid: String? = null,
     val email: String? = null,
 ) {
-    /** Firestore rules require a signed-in Firebase user. */
     val canAccessFirestore: Boolean get() = isAuthenticated
 }
 
-/**
- * Single source of truth for Firebase Auth session across the app.
- * Backed by [FirebaseAuth] + [FirebaseAuth.AuthStateListener].
- */
 object AuthSession {
 
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()

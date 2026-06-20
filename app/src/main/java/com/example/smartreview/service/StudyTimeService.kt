@@ -9,8 +9,6 @@ class StudyTimeService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Start tracking when service is running
-        // This can be used for background tracking
         return START_STICKY
     }
 

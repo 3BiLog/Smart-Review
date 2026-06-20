@@ -3,6 +3,7 @@ package com.example.smartreview.ui.screens.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.smartreview.data.auth.AuthSession
+import com.example.smartreview.data.learning.StudyTimeManager
 import com.example.smartreview.data.model.AuthResult
 import com.example.smartreview.data.model.UserProfile
 import com.example.smartreview.data.repository.AuthRepository
@@ -26,9 +27,9 @@ data class ProfileUiState(
     val fullName: String = "Alex Mercer",
     val email: String = "alex.mercer@example.com",
     val phone: String = "",
-    val dailyGoalMinutes: Int = 30,  // 15, 30, 60
-    val todayStudyTime: Int = 0,     // Minutes studied today
-    val dailyGoalXP: Int = 0,        // XP earned from daily goal
+    val dailyGoalMinutes: Int = 30,
+    val todayStudyTimeBase: Int = 0,
+    val dailyGoalXP: Int = 0,
     val isGoalCompleted: Boolean = false,
     val darkModeEnabled: Boolean = true,
     val notificationsOn: Boolean = true,
@@ -39,16 +40,16 @@ data class ProfileUiState(
     val isAuthenticated: Boolean = false,
     val isEditMode: Boolean = false,
     val profileMessage: String? = null,
-    /** Snapshot for cancel — populated when profile loads from Firestore. */
     val savedFullName: String = "",
     val savedPhone: String = "",
-
-    // Change password states
     val showChangePasswordDialog: Boolean = false,
     val isChangingPassword: Boolean = false,
     val passwordChangeError: String? = null,
     val passwordChangeSuccess: Boolean = false,
-)
+) {
+    val todayStudyTime: Int
+        get() = todayStudyTimeBase + StudyTimeManager.totalStudyMinutes.value.toInt()
+}
 
 class ProfileViewModel(
     private val authRepository: AuthRepository = AuthRepositoryProvider.default,
@@ -63,11 +64,15 @@ class ProfileViewModel(
         viewModelScope.launch {
             AuthSession.state.collect { session ->
                 _uiState.update { it.copy(isAuthenticated = session.isAuthenticated) }
-                if (session.isAuthenticated) loadUserProfile()
-                else resetToGuestDefaults()
+                if (session.isAuthenticated) {
+                    loadUserProfile()
+                } else {
+                    resetToGuestDefaults()
+                }
             }
         }
         observeProfileRealtime()
+        observeStudyTime()
     }
 
     private fun observeProfileRealtime() {
@@ -86,6 +91,15 @@ class ProfileViewModel(
                         else state.applyUserProfile(profile)
                     }
                 }
+        }
+    }
+
+    private fun observeStudyTime() {
+        viewModelScope.launch {
+            StudyTimeManager.totalStudyMinutes.collect { _ ->
+                // Chỉ cần cập nhật state để recompute todayStudyTime (computed property)
+                _uiState.update { it.copy() }
+            }
         }
     }
 
@@ -159,7 +173,6 @@ class ProfileViewModel(
         onLoggedOut()
     }
 
-    // Change Password Functions
     fun showChangePasswordDialog() {
         _uiState.update {
             it.copy(
@@ -213,24 +226,20 @@ class ProfileViewModel(
         _uiState.update { it.copy(passwordChangeSuccess = false) }
     }
 
-    // ✅ NEW: Select daily goal with Firebase sync
     fun selectGoal(minutes: Int) {
         _uiState.update { it.copy(dailyGoalMinutes = minutes) }
-        // Sync to Firestore
         viewModelScope.launch {
             userRepository.updateDailyGoal(minutes.toLong())
             showMessage("Đã cập nhật mục tiêu: $minutes phút/ngày")
         }
     }
 
-    // ✅ NEW: Add study time (called from Pomodoro or lesson completion)
     fun addStudyTime(minutes: Int) {
         viewModelScope.launch {
             val success = userRepository.addStudyTime(minutes.toLong())
             if (success) {
-                // Refresh profile to update UI
+                // Refresh profile để cập nhật todayStudyTimeBase
                 loadUserProfile()
-                // Check if goal was completed
                 val state = _uiState.value
                 if (state.isGoalCompleted) {
                     showMessage("🎉 Chúc mừng! Bạn đã hoàn thành mục tiêu ${state.dailyGoalMinutes} phút hôm nay! +${state.dailyGoalXP} XP")
@@ -249,17 +258,35 @@ class ProfileViewModel(
             _uiState.update { it.copy(isLoadingProfile = true, profileMessage = null) }
             val profile = userRepository.getCurrentUserProfile()
             _uiState.update { state ->
-                if (profile != null) state.applyUserProfile(profile)
-                else state.copy(isLoadingProfile = false, isEditMode = false)
+                if (profile != null) {
+                    checkAndResetStudyTimeManager(profile)
+                    state.applyUserProfile(profile)
+                } else {
+                    state.copy(isLoadingProfile = false, isEditMode = false)
+                }
             }
         }
+    }
+
+    private fun checkAndResetStudyTimeManager(profile: UserProfile) {
+        val lastReset = profile.lastResetDate?.toDate()
+        val today = java.util.Calendar.getInstance()
+        if (lastReset == null || !isSameDay(today, lastReset)) {
+            StudyTimeManager.forceResetDaily()
+            android.util.Log.d("ProfileViewModel", "StudyTimeManager reset due to new day")
+        }
+    }
+
+    private fun isSameDay(cal1: java.util.Calendar, date2: java.util.Date): Boolean {
+        val cal2 = java.util.Calendar.getInstance().apply { time = date2 }
+        return cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
+                cal1.get(java.util.Calendar.DAY_OF_YEAR) == cal2.get(java.util.Calendar.DAY_OF_YEAR)
     }
 
     private fun resetToGuestDefaults() {
         _uiState.value = ProfileUiState(isAuthenticated = false)
     }
 
-    // ✅ FIXED: Apply user profile with correct variable names
     private fun ProfileUiState.applyUserProfile(profile: UserProfile): ProfileUiState {
         val goalMinutes = profile.dailyGoal.toInt()
         val todayMinutes = profile.todayStudyTime.toInt()
@@ -275,7 +302,7 @@ class ProfileViewModel(
             streak = profile.streak,
             xp = profile.xp,
             dailyGoalMinutes = goalMinutes,
-            todayStudyTime = todayMinutes,
+            todayStudyTimeBase = todayMinutes,
             dailyGoalXP = profile.dailyGoalXP.toInt(),
             isGoalCompleted = goalCompleted,
             isLoadingProfile = false,

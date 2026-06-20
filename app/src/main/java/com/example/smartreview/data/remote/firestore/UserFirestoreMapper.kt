@@ -3,10 +3,6 @@ package com.example.smartreview.data.remote.firestore
 import com.example.smartreview.data.model.UserProfile
 import com.google.firebase.Timestamp
 
-/**
- * Maps users/{uid} documents from the production Firestore schema to the app
- * domain model without exposing Firestore DTOs to UI.
- */
 object UserFirestoreMapper {
 
     fun toUserProfile(documentId: String, data: Map<String, Any>?): UserProfile? {
@@ -43,22 +39,16 @@ object UserFirestoreMapper {
         )
     }
 
-    /**
-     * Update map for the signed-in user's own document.
-     * [phone] is kept for UI contract compatibility; production schema has no phone field.
-     */
     fun profileUpdateMap(displayName: String, phone: String): Map<String, Any> = mapOf(
         UserFirestorePaths.Fields.NAME to displayName.trim(),
         UserFirestorePaths.Fields.UPDATED_AT to Timestamp.now(),
     )
 
-    // ✅ NEW: Update daily goal
     fun updateDailyGoalMap(dailyGoal: Long): Map<String, Any> = mapOf(
         UserFirestorePaths.Fields.DAILY_GOAL to dailyGoal,
         UserFirestorePaths.Fields.UPDATED_AT to Timestamp.now(),
     )
 
-    // ✅ NEW: Reset today's study time
     fun resetTodayStudyTimeMap(): Map<String, Any> = mapOf(
         UserFirestorePaths.Fields.TODAY_STUDY_TIME to 0L,
         UserFirestorePaths.Fields.LAST_RESET_DATE to Timestamp.now(),
@@ -66,16 +56,12 @@ object UserFirestoreMapper {
         UserFirestorePaths.Fields.UPDATED_AT to Timestamp.now(),
     )
 
-    // ✅ NEW: Add study time
     fun addStudyTimeMap(minutes: Long, xpEarned: Long): Map<String, Any> = mapOf(
         UserFirestorePaths.Fields.TODAY_STUDY_TIME to minutes,
         UserFirestorePaths.Fields.DAILY_GOAL_XP to xpEarned,
         UserFirestorePaths.Fields.UPDATED_AT to Timestamp.now(),
     )
 
-    /**
-     * Create a new user document in Firestore matching production schema.
-     */
     fun newUserFirestoreMap(
         uid: String,
         email: String,
@@ -98,7 +84,6 @@ object UserFirestoreMapper {
             UserFirestorePaths.Fields.UPDATED_AT to now,
             UserFirestorePaths.Fields.LAST_LOGIN to now,
             UserFirestorePaths.Fields.WARNING_COUNT to 0L,
-            // ✅ NEW
             UserFirestorePaths.Fields.DAILY_GOAL to 30L,
             UserFirestorePaths.Fields.TODAY_STUDY_TIME to 0L,
             UserFirestorePaths.Fields.LAST_RESET_DATE to now,
@@ -136,7 +121,6 @@ object UserFirestoreMapper {
             bannedAt = timestampField(data, UserFirestorePaths.Fields.BANNED_AT),
             bannedUntil = timestampField(data, UserFirestorePaths.Fields.BANNED_UNTIL),
             bannedReason = stringField(data, UserFirestorePaths.Fields.BANNED_REASON),
-            // ✅ NEW
             dailyGoal = numberField(data, UserFirestorePaths.Fields.DAILY_GOAL),
             todayStudyTime = numberField(data, UserFirestorePaths.Fields.TODAY_STUDY_TIME),
             lastResetDate = timestampField(data, UserFirestorePaths.Fields.LAST_RESET_DATE),

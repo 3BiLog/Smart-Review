@@ -103,7 +103,6 @@ object LearningProgressJsonCodec {
             put("answers", answers)
         }
 
-    // FIXED: Use selectedOptionId (String) to match QuizProgressSnapshot in LearningProgressModels
     private fun decodeQuiz(obj: JSONObject): QuizProgressSnapshot {
         val answersArray = obj.optJSONArray("answers") ?: JSONArray()
         val answers = buildList {

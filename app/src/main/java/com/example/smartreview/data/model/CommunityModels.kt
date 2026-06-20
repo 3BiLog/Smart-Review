@@ -5,14 +5,12 @@ import com.google.firebase.firestore.PropertyName
 import java.text.SimpleDateFormat
 import java.util.*
 
-// ─── Chat Room ────────────────────────────────────────────────────────────────
 data class ChatRoom(
     val id: String,
     val name: String,
     val subject: String = "",
     val description: String = "",
 
-    // FIXED: Use proper types matching Web Admin schema
     @get:PropertyName("lastMessage")
     val lastMessage: String? = null,
 
@@ -38,7 +36,7 @@ data class ChatRoom(
     val isPinned: Boolean = false,
 
     @get:PropertyName("type")
-    val roomType: String = "general",  // "general", "course", "announcement"
+    val roomType: String = "general",
 
     @get:PropertyName("createdBy")
     val createdBy: String = "",
@@ -49,14 +47,12 @@ data class ChatRoom(
     @get:PropertyName("updatedAt")
     val updatedAt: Timestamp? = null,
 
-    // UI-specific fields (not stored in Firestore)
     val unreadCount: Int = 0,
     val iconType: RoomIconType = RoomIconType.FORUM,
     val memberAvatars: List<String> = emptyList(),
     val isSystemRoom: Boolean = false,
     val isCurrentUserLast: Boolean = false
 ) {
-    // Helper to format last message time for UI
     fun getFormattedLastMessageTime(): String {
         return lastMessageTime?.toDate()?.let { date ->
             val now = Date()
@@ -87,27 +83,21 @@ data class ChatRoom(
 
 enum class RoomIconType { SCHOOL, CODE, LANGUAGE, PSYCHOLOGY, ANNOUNCEMENT, FORUM, GLOBE }
 
-// ─── Chat Message ─────────────────────────────────────────────────────────────
 data class ChatMessage(
     val id: String,
 
-    // FIXED: "senderId" -> "userId" to match Web Admin schema
     @get:PropertyName("userId")
     val senderId: String,
 
-    // FIXED: "senderName" -> "userName"
     @get:PropertyName("userName")
     val senderName: String,
 
-    // FIXED: "content" -> "text"
     @get:PropertyName("text")
     val content: String,
 
-    // FIXED: String -> Timestamp, "time" -> "timestamp"
     @get:PropertyName("timestamp")
     val timestamp: Timestamp,
 
-    // NEW: File attachment fields from Web Admin schema
     @get:PropertyName("fileUrl")
     val fileUrl: String? = null,
 
@@ -115,12 +105,11 @@ data class ChatMessage(
     val fileName: String? = null,
 
     @get:PropertyName("fileType")
-    val fileType: String? = null,  // "image", "pdf", "document"
+    val fileType: String? = null,
 
     @get:PropertyName("isImage")
     val isImage: Boolean = false,
 
-    // NEW: Moderation fields
     @get:PropertyName("isReported")
     val isReported: Boolean = false,
 
@@ -133,12 +122,10 @@ data class ChatMessage(
     @get:PropertyName("reportedBy")
     val reportedBy: String? = null,
 
-    // UI-specific fields (not stored in Firestore)
     val senderAvatar: String = "",
     val type: MessageType = MessageType.TEXT,
     val isCurrentUser: Boolean = false
 ) {
-    // Helper to format timestamp for UI display
     fun getFormattedTime(): String {
         val date = timestamp.toDate()
         val now = Date()
@@ -161,15 +148,13 @@ data class ChatMessage(
 
 enum class MessageType { TEXT, IMAGE, DATE_SEPARATOR }
 
-// ─── Leaderboard ──────────────────────────────────────────────────────────────
 data class LeaderboardEntry(
     val rank: Int,
     val userId: String,
     val displayName: String,
     val avatarUrl: String,
-    // FIXED: Use Long to match Firestore totalXP field
     val score: Long,
-    val progress: Float,  // 0f–1f (relative to max score)
+    val progress: Float,
     val isCurrentUser: Boolean = false
 )
 
@@ -179,7 +164,6 @@ enum class LeaderboardTab(val label: String) {
     THIS_MONTH("Tháng này"),
 }
 
-// ─── Helper extension to convert from old format to new format ─────────────────
 fun ChatMessage.toMapForFirestore(): Map<String, Any?> {
     return mapOf(
         "userId" to senderId,

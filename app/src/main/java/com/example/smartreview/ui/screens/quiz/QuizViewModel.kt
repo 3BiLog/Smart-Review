@@ -90,7 +90,6 @@ class QuizViewModel(
             )
         }
         if (isLastQuestion) {
-            // Clear progress if needed
         }
         persistProgress()
     }
@@ -185,7 +184,6 @@ class QuizViewModel(
         val state = _uiState.value
         val quiz = state.quiz ?: return
         if (state.isQuizFinished) return
-        // Save to local storage if needed
     }
 
     companion object {

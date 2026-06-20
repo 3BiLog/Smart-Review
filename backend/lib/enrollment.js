@@ -1,9 +1,6 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { Collections, getFirestore } from "./firebase.js";
 
-/**
- * Grant course access to a user after successful payment.
- */
 export async function grantEnrollment({ userId, courseId, orderCode, amount, transactionId }) {
   const db = getFirestore();
   const enrollmentRef = db

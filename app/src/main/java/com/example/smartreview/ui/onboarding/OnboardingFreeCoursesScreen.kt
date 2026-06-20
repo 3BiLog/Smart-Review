@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.smartreview.ui.theme.*
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
 @Composable
 fun OnboardingFreeCoursesScreen(
     onNext: () -> Unit,
@@ -48,7 +47,6 @@ fun OnboardingFreeCoursesScreen(
             .alpha(alpha),
     ) {
 
-        // ── Decorative ambient orbs ───────────────────────────────────────
         AmbientOrb(
             size    = 300.dp,
             color   = GradientStart.copy(alpha = 0.20f),
@@ -64,14 +62,12 @@ fun OnboardingFreeCoursesScreen(
             align   = Alignment.BottomStart,
         )
 
-        // ── Content ───────────────────────────────────────────────────────
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier            = Modifier
                 .fillMaxSize()
                 .systemBarsPadding(),
         ) {
-            // Top bar
             OnboardingTopBar(
                 showSkip  = true,
                 onSkip    = onSkip,
@@ -79,7 +75,6 @@ fun OnboardingFreeCoursesScreen(
 
             Spacer(Modifier.weight(0.5f))
 
-            // Illustration card with glow
             IllustrationCard(
                 imageUrl  = "https://picsum.photos/seed/onboard1/320/400",
                 glowColor = GradientStart.copy(alpha = 0.30f),
@@ -88,7 +83,6 @@ fun OnboardingFreeCoursesScreen(
 
             Spacer(Modifier.weight(0.5f))
 
-            // Text content
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier            = Modifier.padding(horizontal = 32.dp),
@@ -112,7 +106,6 @@ fun OnboardingFreeCoursesScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // Progress dots (page 1 of 4)
             OnboardingDots(
                 currentPage = 0,
                 totalPages  = 4,
@@ -120,7 +113,6 @@ fun OnboardingFreeCoursesScreen(
 
             Spacer(Modifier.height(28.dp))
 
-            // CTA button
             GradientOnboardingButton(
                 text     = "Next Step",
                 onClick  = onNext,
@@ -134,9 +126,6 @@ fun OnboardingFreeCoursesScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ILLUSTRATION CARD  – glass container + inner image
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun IllustrationCard(
     imageUrl:  String,
@@ -147,7 +136,6 @@ fun IllustrationCard(
         contentAlignment = Alignment.Center,
         modifier         = modifier,
     ) {
-        // Glow halo behind card
         Box(
             modifier = Modifier
                 .size(260.dp)
@@ -157,7 +145,6 @@ fun IllustrationCard(
                 )
         )
 
-        // Glass card
         Surface(
             color    = GlassBg,
             shape    = RoundedCornerShape(32.dp),
@@ -180,9 +167,6 @@ fun IllustrationCard(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ONBOARDING DOTS  (animated width for active dot)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun OnboardingDots(currentPage: Int, totalPages: Int, modifier: Modifier = Modifier) {
     Row(
@@ -216,9 +200,6 @@ fun OnboardingDots(currentPage: Int, totalPages: Int, modifier: Modifier = Modif
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PREVIEW
-// ─────────────────────────────────────────────────────────────────────────────
 @Preview(showBackground = true, backgroundColor = 0xFF1C1B1F, widthDp = 390, heightDp = 844)
 @Composable
 private fun OnboardingFreeCoursesPreview() {

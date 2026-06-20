@@ -31,6 +31,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        StudyTimeManager.init(applicationContext)
+
         AuthSession.ensureStarted()
         LearningProgressRepositoryProvider.init(applicationContext)
 
@@ -48,6 +50,7 @@ class MainActivity : ComponentActivity() {
             }
 
             override fun onResume(owner: LifecycleOwner) {
+                StudyTimeManager.checkAndResetDaily()
                 StudyTimeManager.onAppResumed()
                 Log.d("MainActivity", "App resumed - study time resumed")
             }

@@ -39,12 +39,10 @@ fun ReadingScreen(
     viewModel: ReadingViewModel = viewModel(factory = ReadingViewModel.provideFactory(lessonId))
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    // ✅ Track goal completion with state
     var showGoalCompleted by remember { mutableStateOf(false) }
     var xpEarned by remember { mutableStateOf(0L) }
     val context = LocalContext.current
 
-    // ✅ Callback to update state when goal completed
     val onGoalCompleted: (Long) -> Unit = remember {
         { xp ->
             xpEarned = xp
@@ -52,7 +50,6 @@ fun ReadingScreen(
         }
     }
 
-    // ✅ Show toast when goal completed
     if (showGoalCompleted) {
         LaunchedEffect(showGoalCompleted) {
             Toast.makeText(
@@ -123,7 +120,6 @@ fun ReadingScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Nội dung reading
             Surface(
                 modifier = Modifier
                     .weight(1f)
@@ -155,7 +151,6 @@ fun ReadingScreen(
                 }
             }
 
-            // ✅ Nút "Đánh dấu đã đọc"
             Button(
                 onClick = { viewModel.completeReading() },
                 modifier = Modifier
@@ -180,10 +175,8 @@ fun ReadingScreen(
                 }
             }
 
-            // ✅ Nút "Bài học tiếp theo" hoặc "Về trang chủ"
             if (state.isCompleted) {
                 if (state.hasNextLesson && state.nextLessonId != null) {
-                    // Có lesson tiếp theo
                     Button(
                         onClick = {
                             val nextLessonId = state.nextLessonId
@@ -211,7 +204,6 @@ fun ReadingScreen(
                         Text("Bài học tiếp theo")
                     }
                 } else {
-                    // Không còn lesson tiếp theo
                     Button(
                         onClick = {
                             navController.navigate(Screen.Home.route) {
@@ -230,7 +222,6 @@ fun ReadingScreen(
                 }
             }
 
-            // Snackbar hiển thị thành công
             if (state.showSuccess) {
                 LaunchedEffect(Unit) {
                     delay(2000)
@@ -267,7 +258,6 @@ fun ReadingScreen(
     }
 }
 
-// ✅ Hàm helper để navigate đến lesson tiếp theo
 private fun navigateToNextLesson(
     navController: NavHostController,
     nextLessonId: String,

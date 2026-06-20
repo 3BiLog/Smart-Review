@@ -37,12 +37,11 @@ import com.example.smartreview.ui.theme.Primary
 fun YoutubeLessonPlayer(
     videoId: String,
     modifier: Modifier = Modifier,
-    onVideoEnded: (() -> Unit)? = null,  // ✅ Thêm callback cho video kết thúc
+    onVideoEnded: (() -> Unit)? = null,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     var isLoading by remember(videoId) { mutableStateOf(true) }
     var webViewRef by remember(videoId) { mutableStateOf<WebView?>(null) }
-    // ✅ Thêm remember với key videoId để reset khi videoId thay đổi
     val html = remember(videoId) { YouTubeVideoUrl.embedHtml(videoId) }
 
     val activity = LocalContext.current as Activity
@@ -50,15 +49,12 @@ fun YoutubeLessonPlayer(
     var customViewRef: View? by remember(videoId) { mutableStateOf(null) }
     var customViewCallbackRef: WebChromeClient.CustomViewCallback? by remember(videoId) { mutableStateOf(null) }
 
-    // ✅ Log để debug
     android.util.Log.d("YoutubeLessonPlayer", "Creating/Updating player for videoId: $videoId")
 
-    // ✅ Disable BackHandler temporarily when video changes
     BackHandler(enabled = isFullscreen) {
         hideCustomView(activity, customViewRef, customViewCallbackRef)
     }
 
-    // ✅ Sửa DisposableEffect để phụ thuộc vào videoId
     DisposableEffect(lifecycleOwner, videoId) {
         android.util.Log.d("YoutubeLessonPlayer", "DisposableEffect created for videoId: $videoId")
 
@@ -85,7 +81,6 @@ fun YoutubeLessonPlayer(
             android.util.Log.d("YoutubeLessonPlayer", "DisposableEffect DISPOSING for videoId: $videoId")
             lifecycleOwner.lifecycle.removeObserver(observer)
 
-            // ✅ Clean up properly
             webViewRef?.apply {
                 android.util.Log.d("YoutubeLessonPlayer", "Cleaning up WebView for videoId: $videoId")
                 stopLoading()
@@ -94,7 +89,6 @@ fun YoutubeLessonPlayer(
             }
             webViewRef = null
 
-            // ✅ Ensure fullscreen is cleared
             if (isFullscreen) {
                 hideCustomView(activity, customViewRef, customViewCallbackRef)
             }
@@ -114,7 +108,6 @@ fun YoutubeLessonPlayer(
             return@Box
         }
 
-        // ✅ Sử dụng AndroidView với key để force recreate khi videoId thay đổi
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { context ->
@@ -192,7 +185,6 @@ fun YoutubeLessonPlayer(
                 }
             },
             update = { webView ->
-                // ✅ Chỉ update nếu WebView đã thay đổi
                 if (webViewRef != webView) {
                     android.util.Log.d("YoutubeLessonPlayer", "Updating WebView reference for videoId: $videoId")
                     webViewRef = webView
@@ -219,7 +211,6 @@ private fun hideCustomView(
         android.util.Log.d("YoutubeLessonPlayer", "hideCustomView called")
         val decor = activity.window.decorView as ViewGroup
         decor.removeView(view)
-        // restore system UI
         decor.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
         callback.onCustomViewHidden()
     } catch (e: Exception) {

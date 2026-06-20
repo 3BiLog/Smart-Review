@@ -5,10 +5,17 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.smartreview.data.auth.AuthSession
 import com.example.smartreview.data.model.Course
+import com.example.smartreview.data.model.Review
+import com.example.smartreview.data.model.ReviewSummary
 import com.example.smartreview.data.learning.LearningProgressServiceProvider
 import com.example.smartreview.data.learning.LearningProgressionPolicy
 import com.example.smartreview.data.repository.CourseRepository
 import com.example.smartreview.data.repository.CourseRepositoryProvider
+import com.example.smartreview.data.repository.ReviewRepository
+import com.example.smartreview.data.repository.ReviewRepositoryProvider
+import com.example.smartreview.data.repository.UserRepository
+import com.example.smartreview.data.repository.UserRepositoryProvider
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,12 +38,25 @@ data class CourseDetailUiState(
     val recommendedNextLessonTitle: String? = null,
     val isEnrolled: Boolean = false,
     val isCheckingEnrollment: Boolean = true,
+    // Reviews
+    val reviews: List<Review> = emptyList(),
+    val reviewSummary: ReviewSummary? = null,
+    val userReview: Review? = null,
+    val isLoadingReviews: Boolean = false,
+    val isSubmittingReview: Boolean = false,
+    val reviewSubmitSuccess: Boolean = false,
+    val reviewSubmitError: String? = null,
+    val showReviewDialog: Boolean = false,
+    val ratingInput: Int = 0,
+    val reviewContentInput: String = "",
 )
 
 class CourseDetailViewModel(
     private val courseId: String,
     private val courseRepository: CourseRepository = CourseRepositoryProvider.default,
     private val progressionPolicy: LearningProgressionPolicy = LearningProgressionPolicy(),
+    private val reviewRepository: ReviewRepository = ReviewRepositoryProvider.default,
+    private val userRepository: UserRepository = UserRepositoryProvider.default,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CourseDetailUiState())
@@ -48,22 +68,25 @@ class CourseDetailViewModel(
     init {
         loadCourseWithProgression()
         observeAuthForProgressRefresh()
+        loadReviews()
     }
 
     fun refreshProgression() {
         viewModelScope.launch { applyProgression() }
     }
 
-    // Gọi từ màn hình (có thể truyền justPaid, nhưng không còn cần thiết vì ta luôn gọi Firestore)
     fun refreshEnrollment(justPaid: Boolean = false) {
         viewModelScope.launch {
-            // Luôn load lại khóa và kiểm tra enrollment từ Firestore (bỏ qua cache)
             val course = originalCourse ?: courseRepository.getCourseById(courseId)
             originalCourse = course
             if (course != null) {
                 checkEnrollmentAndApply(course)
             } else {
                 _uiState.update { it.copy(isLoading = false) }
+            }
+            if (justPaid) {
+                // Refresh reviews after purchase (user may review after enrolling)
+                loadReviews()
             }
         }
     }
@@ -90,6 +113,7 @@ class CourseDetailViewModel(
                 .collect {
                     refreshEnrollment()
                     refreshProgression()
+                    loadReviews()
                 }
         }
     }
@@ -110,7 +134,6 @@ class CourseDetailViewModel(
         } else if (uid.isNullOrBlank()) {
             false
         } else {
-            // LUÔN GỌI FIRESTORE TRỰC TIẾP, KHÔNG DÙNG CACHE
             android.util.Log.d("CourseDetailVM", "🔍 Checking enrollment directly from Firestore for user $uid")
             val snapshot = firestore
                 .collection("enrollments")
@@ -189,6 +212,192 @@ class CourseDetailViewModel(
     }
 
     fun toggleBookmark() = _uiState.update { it.copy(isBookmarked = !it.isBookmarked) }
+
+    // ========== REVIEW FUNCTIONS ==========
+
+    private fun loadReviews() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingReviews = true) }
+            try {
+                val reviews = reviewRepository.getReviewsForCourse(courseId)
+                val summary = buildReviewSummary(reviews)
+                val userId = FirebaseAuth.getInstance().currentUser?.uid
+                val userReview = if (userId != null) {
+                    reviews.find { it.userId == userId }
+                } else null
+                android.util.Log.d("CourseDetailVM", "Loaded ${reviews.size} reviews for course=$courseId")
+                _uiState.update {
+                    it.copy(
+                        reviews = reviews,
+                        reviewSummary = summary,
+                        userReview = userReview,
+                        isLoadingReviews = false,
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CourseDetailVM", "Error loading reviews", e)
+                _uiState.update { it.copy(isLoadingReviews = false) }
+            }
+        }
+    }
+
+    private fun buildReviewSummary(reviews: List<Review>): ReviewSummary? {
+        if (reviews.isEmpty()) return null
+        return ReviewSummary(
+            averageRating = reviews.map { it.rating }.average().toFloat(),
+            totalReviews = reviews.size,
+            ratingDistribution = reviews.groupingBy { it.rating }.eachCount(),
+        )
+    }
+
+    fun submitReview(rating: Int, content: String) {
+        if (rating < 1 || rating > 5 || content.isBlank()) {
+            _uiState.update { it.copy(reviewSubmitError = "Vui lòng nhập đánh giá và nội dung.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmittingReview = true, reviewSubmitError = null) }
+            val user = FirebaseAuth.getInstance().currentUser
+            if (user == null) {
+                _uiState.update {
+                    it.copy(
+                        isSubmittingReview = false,
+                        reviewSubmitError = "Vui lòng đăng nhập để đánh giá.",
+                    )
+                }
+                return@launch
+            }
+
+            val existingReview = _uiState.value.userReview
+            val success = if (existingReview != null) {
+                reviewRepository.updateReview(existingReview.id, content, rating)
+            } else {
+                val userProfile = userRepository.getCurrentUserProfile()
+                if (userProfile == null) {
+                    _uiState.update {
+                        it.copy(
+                            isSubmittingReview = false,
+                            reviewSubmitError = "Không thể lấy thông tin người dùng.",
+                        )
+                    }
+                    return@launch
+                }
+                val course = _uiState.value.course
+                if (course == null) {
+                    _uiState.update {
+                        it.copy(
+                            isSubmittingReview = false,
+                            reviewSubmitError = "Không tìm thấy khóa học.",
+                        )
+                    }
+                    return@launch
+                }
+                if (reviewRepository.hasUserReviewed(courseId, user.uid)) {
+                    _uiState.update {
+                        it.copy(
+                            isSubmittingReview = false,
+                            reviewSubmitError = "Bạn đã đánh giá khóa học này rồi.",
+                        )
+                    }
+                    loadReviews()
+                    return@launch
+                }
+                val review = Review(
+                    userId = user.uid,
+                    courseId = courseId,
+                    courseTitle = course.title,
+                    userName = userProfile.displayName,
+                    userAvatar = userProfile.avatarUrl,
+                    rating = rating,
+                    content = content,
+                )
+                reviewRepository.submitReview(review)
+            }
+
+            if (success) {
+                _uiState.update {
+                    it.copy(
+                        isSubmittingReview = false,
+                        reviewSubmitSuccess = true,
+                        showReviewDialog = false,
+                        ratingInput = 0,
+                        reviewContentInput = "",
+                    )
+                }
+                loadReviews()
+                refreshCourse()
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isSubmittingReview = false,
+                        reviewSubmitError = "Không thể gửi đánh giá. Vui lòng thử lại.",
+                    )
+                }
+            }
+        }
+    }
+
+    private fun refreshCourse() {
+        viewModelScope.launch {
+            val course = courseRepository.getCourseById(courseId)
+            originalCourse = course
+            if (course != null) {
+                _uiState.update { it.copy(course = course) }
+            }
+        }
+    }
+    fun onHelpfulClick(reviewId: String) {
+        viewModelScope.launch {
+            reviewRepository.markHelpful(reviewId)
+            _uiState.update { state ->
+                val updatedReviews = state.reviews.map { review ->
+                    if (review.id == reviewId) {
+                        review.copy(helpfulCount = review.helpfulCount + 1)
+                    } else review
+                }
+                state.copy(reviews = updatedReviews)
+            }
+        }
+    }
+
+    fun showReviewDialog() {
+        _uiState.update {
+            it.copy(
+                showReviewDialog = true,
+                ratingInput = 0,
+                reviewContentInput = "",
+                reviewSubmitError = null,
+                reviewSubmitSuccess = false,
+            )
+        }
+    }
+
+    fun showEditReviewDialog() {
+        val review = _uiState.value.userReview ?: return
+        _uiState.update {
+            it.copy(
+                showReviewDialog = true,
+                ratingInput = review.rating,
+                reviewContentInput = review.content,
+                reviewSubmitError = null,
+                reviewSubmitSuccess = false,
+            )
+        }
+    }
+
+    fun dismissReviewDialog() {
+        _uiState.update { it.copy(showReviewDialog = false, reviewSubmitError = null) }
+    }
+
+    fun setRatingInput(rating: Int) {
+        _uiState.update { it.copy(ratingInput = rating) }
+    }
+
+    fun setReviewContentInput(content: String) {
+        _uiState.update { it.copy(reviewContentInput = content) }
+    }
+
+    // ========== END REVIEW FUNCTIONS ==========
 
     companion object {
         fun provideFactory(courseId: String): ViewModelProvider.Factory =

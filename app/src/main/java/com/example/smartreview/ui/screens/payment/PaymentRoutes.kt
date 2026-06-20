@@ -7,7 +7,7 @@ import com.example.smartreview.ui.theme.*
 object PaymentRoutes {
     const val METHOD  = "payment_method/{courseId}/{courseName}/{coursePrice}"
     const val PIN     = "payment_pin/{courseId}/{amount}"
-    const val SUCCESS = "purchase_success/{courseId}/{justPaid}"  // thêm justPaid
+    const val SUCCESS = "purchase_success/{courseId}/{justPaid}"
 
     fun successRoute(courseId: String, justPaid: Boolean = false) =
         "purchase_success/$courseId/$justPaid"
@@ -18,7 +18,6 @@ object PaymentRoutes {
     }
 
     fun pinRoute(courseId: String, amount: Long) = "payment_pin/$courseId/$amount"
-    // Xóa overload cũ để tránh nhầm lẫn
 }
 
 enum class PaymentType { CREDIT_CARD, DEBIT_CARD, E_WALLET }

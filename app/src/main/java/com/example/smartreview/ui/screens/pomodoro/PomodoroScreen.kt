@@ -50,7 +50,6 @@ fun PomodoroScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // ── Big Ring Timer ────────────────────────────────────────────
             RingTimer(
                 progress    = state.progress,
                 displayTime = state.displayTime,
@@ -60,7 +59,6 @@ fun PomodoroScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // ── Cycle dots ────────────────────────────────────────────────
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 repeat(4) { idx ->
                     val active = idx < state.cycle
@@ -75,7 +73,6 @@ fun PomodoroScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // ── Controls ──────────────────────────────────────────────────
             Row(
                 verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
@@ -83,7 +80,6 @@ fun PomodoroScreen(
                 ControlButton(onClick = { vm.reset() }, size = 56) {
                     Icon(Icons.Default.Replay, null, tint = OnSurfaceVariant, modifier = Modifier.size(24.dp))
                 }
-                // Play/Pause – larger
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier         = Modifier
@@ -106,7 +102,6 @@ fun PomodoroScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // ── Settings card ─────────────────────────────────────────────
             Surface(
                 color    = SurfaceContainer,
                 shape    = RoundedCornerShape(20.dp),
@@ -160,9 +155,6 @@ fun PomodoroScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RING TIMER  – gradient arc
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun RingTimer(progress: Float, displayTime: String, label: String, modifier: Modifier = Modifier) {
     val animProg by animateFloatAsState(

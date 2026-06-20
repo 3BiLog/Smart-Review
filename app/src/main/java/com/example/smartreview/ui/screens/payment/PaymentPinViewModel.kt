@@ -20,7 +20,6 @@ data class PaymentPinUiState(
     val errorMessage:      String? = null,
     val remainingAttempts: Int     = 3,
     val isLocked:          Boolean = false,
-    // Navigation triggers
     val navigateSuccess:   Boolean = false,
     val triggerShake:      Boolean = false,
     val showCancelDialog:  Boolean = false,
@@ -37,7 +36,7 @@ class PaymentPinViewModel(
     private val _uiState = MutableStateFlow(PaymentPinUiState(amount = amount))
     val uiState: StateFlow<PaymentPinUiState> = _uiState.asStateFlow()
 
-    private val correctPin = "123456" // mock
+    private val correctPin = "123456"
 
     fun onDigit(digit: String) {
         val s = _uiState.value

@@ -1,8 +1,5 @@
 package com.example.smartreview.data.model
 
-/**
- * Persistent learning state per authenticated user (local-first; Room/Firestore later).
- */
 enum class LearningActivityType {
     FLASHCARD,
     LESSON,
@@ -27,10 +24,9 @@ data class LessonProgressSnapshot(
     val viewedBlockIds: Set<String>,
 )
 
-// Thêm vào LearningProgressModels.kt
 data class QuizAnswerRecord(
     val questionId: String,
-    val selectedOptionId: String,  // String, not Int - for compatibility
+    val selectedOptionId: String,
     val isCorrect: Boolean,
 )
 
@@ -54,9 +50,6 @@ data class UserLearningProgress(
     val lastUpdatedAt: Long = System.currentTimeMillis(),
 )
 
-/**
- * Structured in-progress activity for Home / progression UI (not persisted as-is).
- */
 data class LearningProgressionItem(
     val type: LearningActivityType,
     val contentId: String,
@@ -80,5 +73,4 @@ data class LearningProgressionItem(
         }.joinToString(" · ")
 }
 
-/** @see LearningProgressionItem */
 typealias ResumeLearningItem = LearningProgressionItem

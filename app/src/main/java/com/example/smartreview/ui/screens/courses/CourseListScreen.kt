@@ -39,10 +39,8 @@ import com.example.smartreview.data.model.Course
 import com.example.smartreview.ui.components.SmartReviewBottomBar
 import com.example.smartreview.ui.theme.*
 
-// ─── Route ───────────────────────────────────────────────────────────────────
 const val COURSES_LIST_ROUTE = "courses_list"
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
 @Composable
 fun CourseListScreen(
     navController: NavHostController,
@@ -68,7 +66,6 @@ fun CourseListScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            // ── Search bar (full span) ────────────────────────────────────
             item(span = { GridItemSpan(2) }) {
                 CourseSearchBar(
                     query         = state.searchQuery,
@@ -77,7 +74,6 @@ fun CourseListScreen(
                 )
             }
 
-            // ── Filter chips (full span) ──────────────────────────────────
             item(span = { GridItemSpan(2) }) {
                 FilterChipsRow(
                     filters        = state.filters,
@@ -86,7 +82,6 @@ fun CourseListScreen(
                 )
             }
 
-            // ── Empty state ───────────────────────────────────────────────
             if (state.filteredCourses.isEmpty()) {
                 item(span = { GridItemSpan(2) }) {
                     Box(
@@ -104,7 +99,6 @@ fun CourseListScreen(
                 }
             }
 
-            // ── Course grid items ─────────────────────────────────────────
             items(
                 items = state.filteredCourses,
                 key   = { it.id },
@@ -120,9 +114,6 @@ fun CourseListScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TOP BAR
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun CourseListTopBar() {
     Surface(color = GlassBg, tonalElevation = 0.dp) {
@@ -147,9 +138,6 @@ private fun CourseListTopBar() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SEARCH BAR
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun CourseSearchBar(
     query:         String,
@@ -180,9 +168,6 @@ private fun CourseSearchBar(
     )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FILTER CHIPS
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun FilterChipsRow(
     filters:        List<String>,
@@ -223,9 +208,6 @@ private fun FilterChipsRow(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// COURSE GRID CARD
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun CourseGridCard(course: Course, onClick: () -> Unit) {
     val difficultyColor = difficultyColor(course.difficulty)
@@ -238,7 +220,6 @@ private fun CourseGridCard(course: Course, onClick: () -> Unit) {
             .clickable(onClick = onClick),
     ) {
         Column {
-            // ── Thumbnail ─────────────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -251,7 +232,6 @@ private fun CourseGridCard(course: Course, onClick: () -> Unit) {
                     modifier           = Modifier.fillMaxSize(),
                 )
 
-                // Difficulty badge – top left
                 Surface(
                     color  = SurfaceContainer.copy(alpha = 0.85f),
                     shape  = RoundedCornerShape(6.dp),
@@ -267,7 +247,6 @@ private fun CourseGridCard(course: Course, onClick: () -> Unit) {
                     )
                 }
 
-                // XP badge – bottom right
                 Surface(
                     color  = Primary.copy(alpha = 0.20f),
                     shape  = RoundedCornerShape(50.dp),
@@ -291,7 +270,6 @@ private fun CourseGridCard(course: Course, onClick: () -> Unit) {
                 }
             }
 
-            // ── Card body ─────────────────────────────────────────────────
             Column(
                 modifier = Modifier.padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -314,7 +292,6 @@ private fun CourseGridCard(course: Course, onClick: () -> Unit) {
                     )
                 }
 
-                // Progress section
                 if (course.progress > 0f) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(
@@ -351,10 +328,9 @@ private fun CourseGridCard(course: Course, onClick: () -> Unit) {
     }
 }
 
-// ─── Helper ──────────────────────────────────────────────────────────────────
 internal fun difficultyColor(difficulty: String): androidx.compose.ui.graphics.Color =
     when (difficulty) {
         "Beginner"     -> SecondaryDim
         "Intermediate" -> Tertiary
-        else           -> ErrorColor  // Advanced
+        else           -> ErrorColor
     }

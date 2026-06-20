@@ -6,7 +6,6 @@ import com.example.smartreview.data.model.LessonContent
 import com.example.smartreview.data.model.LessonItem
 import com.example.smartreview.data.video.YouTubeVideoUrl
 
-/** Builds playlist [LessonItem]s from canonical [LessonContent] registry. */
 object CourseCatalogAssembly {
 
     fun lessonItem(lessonId: String, isLocked: Boolean): LessonItem {
@@ -24,9 +23,6 @@ object CourseCatalogAssembly {
         )
     }
 
-    /**
-     * Structural module only — unlock state is applied at runtime by [LearningProgressionPolicy].
-     */
     fun module(
         id: String,
         title: String,

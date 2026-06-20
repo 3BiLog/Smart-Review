@@ -33,7 +33,9 @@ fun ProfileScreen(
     vm: ProfileViewModel = viewModel(),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
-    val studyMinutes by StudyTimeManager.totalStudyMinutes.collectAsState()
+
+    val totalMinutes = state.todayStudyTime
+    val isGoalCompleted = totalMinutes >= state.dailyGoalMinutes
 
     Scaffold(
         containerColor = Background,
@@ -133,7 +135,7 @@ fun ProfileScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     listOf(15, 30, 60).forEach { mins ->
                         val selected = state.dailyGoalMinutes == mins
-                        val isCompleted = state.isGoalCompleted && selected
+                        val isCompleted = isGoalCompleted && selected
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -177,13 +179,8 @@ fun ProfileScreen(
                     }
                 }
 
-                // ✅ Show today's progress with real-time data
                 if (state.isAuthenticated) {
                     Spacer(Modifier.height(8.dp))
-                    val totalMinutes = state.todayStudyTime + studyMinutes.toInt()
-                    val goalMinutes = state.dailyGoalMinutes
-                    val isCompleted = totalMinutes >= goalMinutes
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -193,7 +190,7 @@ fun ProfileScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = OnSurfaceVariant,
                         )
-                        if (isCompleted) {
+                        if (isGoalCompleted) {
                             Text(
                                 "Đã đạt mục tiêu! +${state.dailyGoalXP} XP",
                                 style = MaterialTheme.typography.bodySmall,
@@ -202,7 +199,7 @@ fun ProfileScreen(
                             )
                         } else {
                             Text(
-                                "Còn ${(goalMinutes - totalMinutes).coerceAtLeast(0)} phút",
+                                "Còn ${(state.dailyGoalMinutes - totalMinutes).coerceAtLeast(0)} phút",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Primary,
                             )
@@ -265,7 +262,6 @@ fun ProfileScreen(
         }
     }
 
-    // ✅ Change Password Dialog
     if (state.showChangePasswordDialog) {
         ChangePasswordDialog(
             onDismiss = { vm.dismissChangePasswordDialog() },
@@ -277,7 +273,6 @@ fun ProfileScreen(
         )
     }
 
-    // ✅ Auto-clear success message after delay
     if (state.passwordChangeSuccess) {
         LaunchedEffect(Unit) {
             delay(3000)

@@ -2,10 +2,6 @@ package com.example.smartreview.data.model
 
 import com.google.firebase.Timestamp
 
-/**
- * Quiz domain models - Updated to match Firestore schema from Web Admin
- */
-
 data class QuizQuestion(
     val id: String,
     val text: String,
@@ -32,9 +28,6 @@ data class Quiz(
     val xpReward: Long = 50,
     val duration: Long = 0,
 )
-
-// REMOVED: QuizAnswerRecord - now defined in LearningProgressModels.kt
-// REMOVED: QuizProgressSnapshot - now defined in LearningProgressModels.kt
 
 data class QuizCompletionResult(
     val sessionId: String,

@@ -4,9 +4,6 @@ import java.util.Calendar
 import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
-/**
- * Local-calendar study day keys (yyyy-MM-dd) for streak boundaries.
- */
 object StudyDayFormatter {
 
     fun todayKey(
@@ -20,7 +17,6 @@ object StudyDayFormatter {
         return formatCal(cal)
     }
 
-    /** Days between [fromKey] and [toKey]; null when [fromKey] is missing/invalid. */
     fun daysBetween(fromKey: String?, toKey: String): Long? {
         if (fromKey.isNullOrBlank()) return null
         val from = parseDayKey(fromKey) ?: return null

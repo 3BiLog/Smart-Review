@@ -28,7 +28,6 @@ data class ReadingUiState(
     val isCompleting: Boolean = false,
     val showSuccess: Boolean = false,
     val error: String? = null,
-    // ✅ Thêm state cho next lesson
     val hasNextLesson: Boolean = false,
     val nextLessonId: String? = null,
     val nextLessonTitle: String? = null,
@@ -60,7 +59,6 @@ class ReadingViewModel(
                 val reading = readingRepository.getReadingLesson(lessonId)
                 android.util.Log.d("ReadingViewModel", "Reading loaded: ${reading != null}")
 
-                // ✅ Kiểm tra lesson tiếp theo
                 val nextLessonInfo = getNextLessonAfterReading(reading?.courseId)
 
                 _uiState.update {
@@ -86,7 +84,6 @@ class ReadingViewModel(
         }
     }
 
-    // ✅ Kiểm tra trạng thái hoàn thành từ Firestore
     private fun checkCompletionStatus() {
         viewModelScope.launch {
             try {
@@ -100,7 +97,6 @@ class ReadingViewModel(
         }
     }
 
-    // ✅ Tìm lesson tiếp theo sau reading
     private suspend fun getNextLessonAfterReading(courseId: String?): NextLessonInfo? {
         if (courseId.isNullOrBlank()) return null
 
@@ -133,7 +129,6 @@ class ReadingViewModel(
         viewModelScope.launch {
             val reading = _uiState.value.reading ?: return@launch
 
-            // ✅ Kiểm tra đã hoàn thành chưa
             if (_uiState.value.isCompleted) {
                 android.util.Log.d("ReadingViewModel", "Already completed")
                 return@launch
@@ -147,16 +142,13 @@ class ReadingViewModel(
             _uiState.update { it.copy(isCompleting = true, error = null) }
 
             try {
-                // ✅ 1. Đánh dấu lesson đã hoàn thành
                 progressService.markLessonCompleted(lessonId)
                 android.util.Log.d("ReadingViewModel", "Lesson marked completed: $lessonId")
 
-                // ✅ 2. Cộng XP
                 val firestore = FirebaseFirestore.getInstance()
                 val userRef = firestore.collection("users").document(userId)
                 userRef.update("totalXP", FieldValue.increment(reading.xpReward)).await()
 
-                // ✅ 3. Add XP log
                 val xpLog = mapOf(
                     "userId" to userId,
                     "amount" to reading.xpReward,
@@ -212,7 +204,6 @@ class ReadingViewModel(
     }
 }
 
-// ✅ Data class cho next lesson info
 data class NextLessonInfo(
     val hasNext: Boolean,
     val nextLessonId: String? = null,

@@ -21,15 +21,6 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.util.Date
 
-/**
- * Firestore transaction for idempotent reward ledger + atomic XP increment + streak/date sync.
- *
- * FIXED: Field names now match Web Admin schema (DA3-master):
- * - "totalXP" instead of "xp"
- * - "currentStreak" instead of "streak"
- * - "lastStreakDate" (Timestamp) instead of "lastStudyDate" (String)
- * - Also writes to "xp_logs" collection for Web Admin compatibility
- */
 class FirestoreGamificationRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -80,7 +71,6 @@ class FirestoreGamificationRepository(
                     null
                 }
 
-                // FIXED: Read correct field names
                 val currentXP = profile?.xp ?: 0
                 val currentStreak = profile?.streak ?: 0
                 val lastStreakDate = profile?.lastStreakDate
@@ -91,17 +81,14 @@ class FirestoreGamificationRepository(
                     null
                 }
 
-                // FIXED: Write to "totalXP" field (Web Admin reads this for leaderboard)
                 val userUpdates = mutableMapOf<String, Any>(
-                    "totalXP" to FieldValue.increment(action.xpAmount.toLong()),  // FIXED: "totalXP"
-                    "xp" to FieldValue.increment(action.xpAmount.toLong()),      // Keep legacy field
+                    "totalXP" to FieldValue.increment(action.xpAmount.toLong()),
+                    "xp" to FieldValue.increment(action.xpAmount.toLong()),
                 )
 
                 if (streakUpdateResult != null) {
-                    // FIXED: Use "currentStreak" instead of "streak"
                     userUpdates["currentStreak"] = streakUpdateResult.newStreak
-                    userUpdates["streak"] = streakUpdateResult.newStreak  // Keep legacy
-                    // FIXED: Use "lastStreakDate" as Timestamp
+                    userUpdates["streak"] = streakUpdateResult.newStreak
                     userUpdates["lastStreakDate"] = streakUpdateResult.todayTimestamp
                 }
 
@@ -127,7 +114,6 @@ class FirestoreGamificationRepository(
                 )
             }.await()
 
-            // FIXED: Also write to xp_logs collection for Web Admin compatibility
             if (outcome is LedgerOutcome.Success && outcome.xpAwarded > 0) {
                 writeToXpLogs(uid, outcome.xpAwarded.toLong(), action.name, idempotencyKey)
             }
@@ -157,9 +143,6 @@ class FirestoreGamificationRepository(
         }
     }
 
-    /**
-     * FIXED: Compute streak using Timestamp instead of String.
-     */
     private fun computeStreakWithTimestamp(
         currentStreak: Long,
         lastStreakDate: Timestamp?,
@@ -170,7 +153,7 @@ class FirestoreGamificationRepository(
 
         return when {
             lastDate == null -> StreakUpdateResult(
-                newStreak = 1L,  // FIXED: Use 1L instead of 1
+                newStreak = 1L,
                 streakIncremented = true,
                 todayTimestamp = today
             )
@@ -180,12 +163,12 @@ class FirestoreGamificationRepository(
                 todayTimestamp = today
             )
             isYesterday(lastDate, todayDate) -> StreakUpdateResult(
-                newStreak = currentStreak + 1L,  // FIXED: Use 1L
+                newStreak = currentStreak + 1L,
                 streakIncremented = true,
                 todayTimestamp = today
             )
             else -> StreakUpdateResult(
-                newStreak = 1L,  // FIXED: Use 1L instead of 1
+                newStreak = 1L,
                 streakIncremented = true,
                 todayTimestamp = today
             )
@@ -207,9 +190,6 @@ class FirestoreGamificationRepository(
                 cal1.get(java.util.Calendar.DAY_OF_YEAR) == cal2.get(java.util.Calendar.DAY_OF_YEAR)
     }
 
-    /**
-     * FIXED: Write to xp_logs collection for Web Admin to read.
-     */
     private suspend fun writeToXpLogs(uid: String, amount: Long, reason: String, activityType: String) {
         try {
             val xpLog = mapOf(

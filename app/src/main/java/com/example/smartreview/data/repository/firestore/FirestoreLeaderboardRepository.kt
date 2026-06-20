@@ -17,10 +17,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 
-/**
- * Realtime leaderboard from Firestore users collection (ordered by xp desc).
- * Guests receive empty data; mock fallback only when authenticated and query fails.
- */
 class FirestoreLeaderboardRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance(),

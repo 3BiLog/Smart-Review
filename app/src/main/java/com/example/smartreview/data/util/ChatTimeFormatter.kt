@@ -2,18 +2,10 @@ package com.example.smartreview.data.util
 
 import java.util.Calendar
 
-/**
- * Formats chat message timestamps from Firestore [createdAt] (epoch millis).
- * Uses device local timezone — no external date libraries.
- */
 object ChatTimeFormatter {
 
     private const val JUST_NOW_THRESHOLD_MS = 60_000L
 
-    /**
-     * @param epochMillis Firestore createdAt (source of truth)
-     * @param nowMillis reference clock, default [System.currentTimeMillis]
-     */
     fun format(epochMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
         if (epochMillis <= 0L) return ""
 
@@ -63,7 +55,6 @@ object ChatTimeFormatter {
     private fun isSameYear(a: Calendar, b: Calendar): Boolean =
         a.get(Calendar.YEAR) == b.get(Calendar.YEAR)
 
-    /** Legacy mock / client strings that must not override [createdAt]. */
     fun isLegacyPlaceholderTime(value: String?): Boolean {
         if (value.isNullOrBlank()) return true
         return value.equals("Now", ignoreCase = true) ||

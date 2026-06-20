@@ -17,16 +17,6 @@ import kotlinx.coroutines.withContext
 import com.google.firebase.Timestamp
 import java.util.Calendar
 
-/**
- * Firestore-backed user profiles aligned with production users/{uid} schema.
- *
- * Domain mapping (UserFirestoreMapper):
- * - name -> displayName
- * - totalXP (fallback xp) -> xp
- * - currentStreak -> streak
- * - createdAt -> joinedAt
- * - lastStreakDate -> lastStreakDate
- */
 class FirestoreUserRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -105,7 +95,6 @@ class FirestoreUserRepository(
         }
     }
 
-    // ✅ NEW: Update daily goal
     override suspend fun updateDailyGoal(dailyGoal: Long): Boolean = withContext(Dispatchers.IO) {
         val uid = firebaseAuth.currentUser?.uid ?: return@withContext false
         try {
@@ -117,21 +106,19 @@ class FirestoreUserRepository(
         }
     }
 
-    // ✅ NEW: Add study time and check for goal completion
     override suspend fun addStudyTime(minutes: Long): Boolean = withContext(Dispatchers.IO) {
         val uid = firebaseAuth.currentUser?.uid ?: return@withContext false
 
         try {
-            // Get current profile
             val profile = fetchUserProfile(uid) ?: return@withContext false
 
-            // Check if need to reset daily (new day)
+            // Kiểm tra reset ngày
             val shouldReset = shouldResetDailyStudyTime(profile)
+            android.util.Log.d("StudyTimeRepo", "addStudyTime: shouldReset=$shouldReset, todayStudyTime=${profile.todayStudyTime}")
 
             val currentStudyTime = if (shouldReset) 0L else profile.todayStudyTime
             val newStudyTime = currentStudyTime + minutes
 
-            // Check if goal is completed
             val goal = profile.dailyGoal
             val wasCompleted = currentStudyTime >= goal
             val isNowCompleted = newStudyTime >= goal
@@ -149,25 +136,28 @@ class FirestoreUserRepository(
                 updates[UserFirestorePaths.Fields.LAST_RESET_DATE] = Timestamp.now()
                 updates[UserFirestorePaths.Fields.DAILY_GOAL_XP] =
                     if (isNowCompleted) calculateDailyGoalXP(goal) else 0L
+                android.util.Log.d("StudyTimeRepo", "Reset daily: newStudyTime=$minutes")
             } else {
                 updates[UserFirestorePaths.Fields.TODAY_STUDY_TIME] = newStudyTime
                 updates[UserFirestorePaths.Fields.DAILY_GOAL_XP] = xpEarned
+                android.util.Log.d("StudyTimeRepo", "Add study time: newStudyTime=$newStudyTime")
             }
 
             if (goalJustCompleted) {
                 val newTotalXp = profile.xp + xpReward
                 updates[UserFirestorePaths.Fields.TOTAL_XP] = newTotalXp
                 updates[UserFirestorePaths.Fields.XP] = newTotalXp
+                android.util.Log.d("StudyTimeRepo", "Goal completed! XP reward: $xpReward")
             }
 
             userDocument(uid).set(updates, SetOptions.merge()).await()
             true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            android.util.Log.e("StudyTimeRepo", "addStudyTime error", e)
             false
         }
     }
 
-    // ✅ NEW: Reset daily study time
     override suspend fun resetDailyStudyTime(): Boolean = withContext(Dispatchers.IO) {
         val uid = firebaseAuth.currentUser?.uid ?: return@withContext false
         try {
@@ -179,12 +169,13 @@ class FirestoreUserRepository(
         }
     }
 
-    // Helper: Check if daily study time should be reset
     private fun shouldResetDailyStudyTime(profile: UserProfile): Boolean {
         val lastReset = profile.lastResetDate?.toDate() ?: return true
-        val today = getTodayDate()
-        val lastResetDate = getDateWithoutTime(lastReset)
-        return today != lastResetDate
+        val today = Calendar.getInstance()
+        val lastResetCal = Calendar.getInstance().apply { time = lastReset }
+        val sameDay = today.get(Calendar.YEAR) == lastResetCal.get(Calendar.YEAR) &&
+                today.get(Calendar.DAY_OF_YEAR) == lastResetCal.get(Calendar.DAY_OF_YEAR)
+        return !sameDay
     }
 
     private fun getTodayDate(): String = formatDateKey(Calendar.getInstance())
@@ -201,7 +192,6 @@ class FirestoreUserRepository(
         return "${calendar.get(Calendar.YEAR)}-$month-$day"
     }
 
-    // Calculate XP based on daily goal
     private fun calculateDailyGoalXP(goalMinutes: Long): Long {
         return when (goalMinutes) {
             15L -> 10L
@@ -246,7 +236,6 @@ class FirestoreUserRepository(
         bannedAt = null,
         bannedUntil = null,
         bannedReason = null,
-        // ✅ NEW: Default values for daily goal fields
         dailyGoal = 30,
         todayStudyTime = 0,
         lastResetDate = Timestamp.now(),
@@ -254,9 +243,6 @@ class FirestoreUserRepository(
     )
 }
 
-/**
- * Empty fallback implementation for when no network or not authenticated.
- */
 private class EmptyUserFallback : UserRepository {
     override suspend fun getCurrentUserProfile(): UserProfile? = null
     override suspend fun getUserProfile(uid: String): UserProfile? = null
@@ -270,7 +256,6 @@ private class EmptyUserFallback : UserRepository {
             uid = uid,
             displayName = displayName ?: email.substringBefore("@"),
             email = email,
-            // ✅ NEW: Default values
             dailyGoal = 30,
             todayStudyTime = 0,
             lastResetDate = Timestamp.now(),
@@ -278,7 +263,6 @@ private class EmptyUserFallback : UserRepository {
         )
     }
 
-    // ✅ NEW: Implement new functions
     override suspend fun updateDailyGoal(dailyGoal: Long): Boolean = false
     override suspend fun addStudyTime(minutes: Long): Boolean = false
     override suspend fun resetDailyStudyTime(): Boolean = false

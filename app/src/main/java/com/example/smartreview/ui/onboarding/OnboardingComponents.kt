@@ -24,9 +24,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.smartreview.ui.theme.*
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TOP BAR  – reused by both onboarding screens
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun OnboardingTopBar(
     showSkip:      Boolean  = false,
@@ -42,7 +39,6 @@ fun OnboardingTopBar(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        // Leading: back arrow or avatar
         if (showBackArrow) {
             IconButton(onClick = onBack) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = OnSurfaceVariant)
@@ -65,7 +61,6 @@ fun OnboardingTopBar(
             Spacer(Modifier.size(40.dp))
         }
 
-        // Center: brand name
         Text(
             text  = "SMART REVIEW",
             style = MaterialTheme.typography.titleMedium.copy(
@@ -74,7 +69,6 @@ fun OnboardingTopBar(
             ),
         )
 
-        // Trailing: skip or notifications
         if (showSkip) {
             Box(
                 contentAlignment = Alignment.Center,
@@ -95,9 +89,6 @@ fun OnboardingTopBar(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GRADIENT ONBOARDING BUTTON  – used by both screens
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun GradientOnboardingButton(
     text:     String,
@@ -132,9 +123,6 @@ fun GradientOnboardingButton(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AMBIENT ORB  – decorative background glow (no Modifier.blur needed)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun BoxScope.AmbientOrb(
     size:    Dp,

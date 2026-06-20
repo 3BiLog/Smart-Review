@@ -53,7 +53,6 @@ export default async function handler(req, res) {
       data = doc.data();
     }
 
-    // If still pending, verify with PayOS API
     if (data.status === "pending" && data.orderCode) {
       try {
         const payos = getPayOS();

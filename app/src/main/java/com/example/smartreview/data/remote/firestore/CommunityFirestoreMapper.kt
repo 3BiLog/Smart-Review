@@ -10,10 +10,6 @@ import com.google.firebase.firestore.FieldValue
 
 object CommunityFirestoreMapper {
 
-    // -----------------------------------------------------------------------
-    // ChatRoom mapping
-    // -----------------------------------------------------------------------
-
     fun toChatRoom(roomId: String, data: Map<String, Any>?): ChatRoom? {
         if (data == null) return null
         val dto = mapToRoomDocument(data)
@@ -45,26 +41,21 @@ object CommunityFirestoreMapper {
         )
     }
 
-    // -----------------------------------------------------------------------
-    // ChatMessage mapping (read from Firestore)
-    // -----------------------------------------------------------------------
-
     fun toChatMessage(messageId: String, data: Map<String, Any>?): ChatMessage? {
         if (data == null) return null
         val dto = mapToMessageDocument(data)
         val text = dto.text.orEmpty()
-        // Reject empty messages that carry no content and no file
         if (text.isBlank() && dto.fileUrl.isNullOrBlank()) return null
 
         val timestamp = dto.timestamp as? Timestamp ?: Timestamp.now()
 
         return ChatMessage(
             id = messageId,
-            senderId = dto.userId.orEmpty(),       // Firestore field: "userId"
-            senderName = dto.userName.orEmpty(),   // Firestore field: "userName"
-            senderAvatar = "",                     // Not stored in Firestore schema
-            content = text,                        // Firestore field: "text"
-            timestamp = timestamp,                 // FIXED: Use Timestamp instead of String
+            senderId = dto.userId.orEmpty(),
+            senderName = dto.userName.orEmpty(),
+            senderAvatar = "",
+            content = text,
+            timestamp = timestamp,
             type = resolveMessageType(dto),
             fileUrl = dto.fileUrl,
             fileName = dto.fileName,
@@ -84,11 +75,6 @@ object CommunityFirestoreMapper {
         currentUserId: String?,
     ): ChatMessage? = toChatMessage(messageId, data)?.withCurrentUserOwnership(currentUserId)
 
-    // -----------------------------------------------------------------------
-    // Sort key (for in-memory ordering when Firestore query has no orderBy)
-    // -----------------------------------------------------------------------
-
-    /** Returns epoch-millis from the "timestamp" field, or Long.MAX_VALUE if absent. */
     fun messageSortKey(data: Map<String, Any>?): Long {
         if (data == null) return Long.MAX_VALUE
         return mapToMessageDocument(data).let { dto ->
@@ -96,24 +82,13 @@ object CommunityFirestoreMapper {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Write to Firestore — field names MUST match DA3-master chatService.ts
-    // -----------------------------------------------------------------------
-
-    /**
-     * Builds the Firestore document map for a new message.
-     *
-     * Field names match the production schema and DA3-master/chatService.ts:
-     *   userId, userName, text, timestamp, isReported
-     *   fileUrl, fileName, fileType, isImage  (file messages only)
-     */
     fun messageToFirestoreMap(message: ChatMessage): Map<String, Any> {
         val fileUrl = message.fileUrl
         val fields = mutableMapOf<String, Any>(
-            "userId" to message.senderId,       // Firestore field: "userId"
-            "userName" to message.senderName,   // Firestore field: "userName"
-            "text" to message.content.trim(),   // Firestore field: "text"
-            "timestamp" to FieldValue.serverTimestamp(), // Firestore field: "timestamp"
+            "userId" to message.senderId,
+            "userName" to message.senderName,
+            "text" to message.content.trim(),
+            "timestamp" to FieldValue.serverTimestamp(),
             "isReported" to false,
         )
         fileUrl?.takeIf { it.isNotBlank() }?.let { url ->
@@ -132,10 +107,6 @@ object CommunityFirestoreMapper {
             "lastMessageUser" to message.senderName,
             "messageCount" to FieldValue.increment(1),
         )
-
-    // -----------------------------------------------------------------------
-    // Private helpers — document parsing
-    // -----------------------------------------------------------------------
 
     private fun resolveRoomName(roomId: String, dto: ChatRoomDocument): String =
         dto.name?.takeIf { it.isNotBlank() } ?: roomId
@@ -182,10 +153,10 @@ object CommunityFirestoreMapper {
 
     private fun mapToMessageDocument(data: Map<String, Any?>): ChatMessageDocument =
         ChatMessageDocument(
-            userId = stringField(data, "userId"),           // Firestore field: "userId"
-            userName = stringField(data, "userName"),       // Firestore field: "userName"
-            text = stringField(data, "text"),               // Firestore field: "text"
-            timestamp = data["timestamp"],                  // Firestore Timestamp
+            userId = stringField(data, "userId"),
+            userName = stringField(data, "userName"),
+            text = stringField(data, "text"),
+            timestamp = data["timestamp"],
             fileUrl = stringField(data, "fileUrl"),
             fileName = stringField(data, "fileName"),
             fileType = stringField(data, "fileType"),
@@ -195,10 +166,6 @@ object CommunityFirestoreMapper {
             reportedBy = stringField(data, "reportedBy"),
             reportedAt = data["reportedAt"],
         )
-
-    // -----------------------------------------------------------------------
-    // Private helpers — field extraction
-    // -----------------------------------------------------------------------
 
     private fun stringField(data: Map<String, Any?>, vararg keys: String): String? {
         for (key in keys) {
@@ -217,10 +184,6 @@ object CommunityFirestoreMapper {
         return null
     }
 
-    /**
-     * Safely converts a Firestore Timestamp or epoch Long to milliseconds.
-     * Handles both Firestore SDK [Timestamp] objects and numeric epoch values.
-     */
     private fun timestampToMillis(value: Any?): Long? = when (value) {
         is Timestamp -> value.toDate().time
         is Number -> value.toLong()

@@ -22,17 +22,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
-/**
- * Firestore-backed Community repository.
- * Mock fallback applies only when authenticated (offline/permission errors), never for guests.
- *
- * FIXED: Removed references to non-existent "suggested_rooms" collection.
- * Use chat_rooms with type="general" instead.
- */
 class FirestoreCommunityRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance(),
-    // TEMPORARILY CHANGED: Use empty fallback instead of Mock
     private val fallback: CommunityRepository = EmptyCommunityFallback(),
 ) : CommunityRepository, CommunityRealtimeRepository {
 
@@ -41,10 +33,9 @@ class FirestoreCommunityRepository(
         fetchRoomsOrNull() ?: fallback.getRooms()
     }
 
-    // FIXED: suggested_rooms doesn't exist in production - return empty list or fallback
+
     override fun getSuggestedRooms(): List<ChatRoom> = runBlocking(Dispatchers.IO) {
         if (!isAuthenticated()) return@runBlocking emptyList()
-        // suggested_rooms doesn't exist in Web Admin schema, return empty list
         emptyList()
     }
 
@@ -61,7 +52,6 @@ class FirestoreCommunityRepository(
     override fun observeRooms(): Flow<List<ChatRoom>> =
         collectionSnapshotFlow(CommunityFirestorePaths.ROOMS) { fallback.getRooms() }
 
-    // FIXED: suggested_rooms doesn't exist - return empty flow
     override fun observeSuggestedRooms(): Flow<List<ChatRoom>> = callbackFlow {
         trySend(emptyList())
         awaitClose { }
@@ -154,7 +144,6 @@ class FirestoreCommunityRepository(
         if (!isAuthenticated()) return emptyList()
         val collection = messagesCollection(roomId)
         val snapshot = try {
-            // FIXED: Use "timestamp" field for ordering (matches Web Admin schema)
             collection.orderBy("timestamp", Query.Direction.ASCENDING).get().await()
         } catch (_: Exception) {
             try {
@@ -208,9 +197,6 @@ class FirestoreCommunityRepository(
     }.flowOn(Dispatchers.IO)
 }
 
-/**
- * Empty fallback implementation for when no network or not authenticated.
- */
 private class EmptyCommunityFallback : CommunityRepository {
     override fun getRooms(): List<ChatRoom> = emptyList()
     override fun getSuggestedRooms(): List<ChatRoom> = emptyList()

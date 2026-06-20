@@ -51,7 +51,6 @@ fun ChangePasswordDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Current password
                 OutlinedTextField(
                     value = currentPassword,
                     onValueChange = {
@@ -78,7 +77,6 @@ fun ChangePasswordDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // New password
                 OutlinedTextField(
                     value = newPassword,
                     onValueChange = {
@@ -110,7 +108,6 @@ fun ChangePasswordDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Confirm password
                 OutlinedTextField(
                     value = confirmPassword,
                     onValueChange = {
@@ -142,7 +139,6 @@ fun ChangePasswordDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Error message
                 (localError ?: errorMessage)?.let { error ->
                     Text(
                         error,

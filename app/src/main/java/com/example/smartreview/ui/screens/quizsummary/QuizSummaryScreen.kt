@@ -63,7 +63,6 @@ fun QuizSummaryScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Icon kết quả
             Icon(
                 if (state.passed) Icons.Default.CheckCircle else Icons.Default.Star,
                 contentDescription = null,
@@ -84,7 +83,6 @@ fun QuizSummaryScreen(
                 overflow = TextOverflow.Ellipsis,
             )
 
-            // Thông tin chi tiết
             Surface(
                 color = SurfaceContainer,
                 shape = RoundedCornerShape(16.dp),
@@ -186,7 +184,6 @@ fun QuizSummaryScreen(
                 }
             }
 
-            // Nút về trang chủ (luôn hiển thị)
             OutlinedButton(
                 onClick = {
                     navController.navigate(Screen.Home.route) {

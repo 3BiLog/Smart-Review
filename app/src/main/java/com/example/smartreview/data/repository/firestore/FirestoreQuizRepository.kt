@@ -11,11 +11,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
-/**
- * Firestore-backed QuizRepository that reads quiz data from courses collection.
- *
- * Quiz data is embedded in lessons with type="quiz" inside course.modules[].lessons[]
- */
 class FirestoreQuizRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) : QuizRepository {

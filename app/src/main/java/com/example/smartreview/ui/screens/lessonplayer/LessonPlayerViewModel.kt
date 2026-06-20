@@ -37,7 +37,7 @@ data class LessonPlayerUiState(
     val isNavigating: Boolean = false,
     val isCompleting: Boolean = false,
     val showCompleteDialog: Boolean = false,
-    val selectedNextLesson: LessonItem? = null,  // ✅ Thêm selected lesson từ Up Next
+    val selectedNextLesson: LessonItem? = null,
 )
 
 class LessonPlayerViewModel(
@@ -232,7 +232,6 @@ class LessonPlayerViewModel(
         }
     }
 
-    // ✅ Hàm hoàn thành bài học và chuyển đến lesson mặc định (next lesson)
     fun completeLessonAndContinue(
         onSuccess: (nextLessonId: String?) -> Unit
     ) {
@@ -277,7 +276,6 @@ class LessonPlayerViewModel(
         }
     }
 
-    // ✅ Hàm hoàn thành bài học và chuyển đến lesson đã chọn (từ Up Next)
     fun completeLessonAndNavigateToSelected(
         onSuccess: (selectedLesson: LessonItem?) -> Unit
     ) {
@@ -322,7 +320,6 @@ class LessonPlayerViewModel(
         }
     }
 
-    // ✅ Hàm chung để hoàn thành lesson và cộng XP
     private suspend fun completeCurrentLesson(lessonId: String) {
         progressService.markLessonCompleted(lessonId)
         android.util.Log.d("LessonPlayerViewModel", "Lesson marked completed: $lessonId")
@@ -367,12 +364,10 @@ class LessonPlayerViewModel(
         sessionId = newSessionId
     }
 
-    // ✅ Set selected next lesson (từ Up Next)
     fun setSelectedNextLesson(lesson: LessonItem) {
         _uiState.update { it.copy(selectedNextLesson = lesson) }
     }
 
-    // ✅ Clear selected next lesson
     fun clearSelectedNextLesson() {
         _uiState.update { it.copy(selectedNextLesson = null) }
     }

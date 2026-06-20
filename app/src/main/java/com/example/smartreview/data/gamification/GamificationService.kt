@@ -5,9 +5,6 @@ import com.example.smartreview.data.repository.AuthRepositoryProvider
 import com.example.smartreview.data.repository.GamificationRepository
 import com.example.smartreview.data.repository.GamificationRepositoryProvider
 
-/**
- * Central entry point for XP rewards and streak progression across features.
- */
 class GamificationService(
     private val gamificationRepository: GamificationRepository = GamificationRepositoryProvider.default,
     private val authRepository: AuthRepository = AuthRepositoryProvider.default,

@@ -22,9 +22,6 @@ import com.example.smartreview.ui.screens.quiz.quizRoute
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
-/**
- * Maps persisted snapshots to [LearningProgressionItem] using Course → Module → Lesson catalog.
- */
 class LearningProgressionResolver(
     private val courseRepository: CourseRepository = CourseRepositoryProvider.default,
     private val lessonRepository: LessonRepository = LessonRepositoryProvider.default,

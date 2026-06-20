@@ -11,9 +11,6 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import kotlinx.coroutines.tasks.await
 
-/**
- * Firebase Authentication implementation of [AuthRepository].
- */
 class FirebaseAuthRepository(
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance(),
 ) : AuthRepository {
@@ -56,14 +53,12 @@ class FirebaseAuthRepository(
                 return AuthResult.Error("Vui lòng đăng nhập lại để đổi mật khẩu.")
             }
 
-            // Re-authenticate user before changing password
             val credential = EmailAuthProvider.getCredential(
                 user.email ?: return AuthResult.Error("Không tìm thấy email."),
                 currentPassword
             )
             user.reauthenticate(credential).await()
 
-            // Update password
             user.updatePassword(newPassword).await()
             AuthResult.Success(AuthUser(user.uid, user.email ?: ""))
         } catch (e: Exception) {

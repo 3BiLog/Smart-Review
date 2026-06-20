@@ -23,30 +23,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.smartreview.ui.theme.*
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PUBLIC API
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Reusable offline state composable.
- *
- * Two display modes:
- *  1. **Standalone** (default) – fills the full screen, shows a skeleton background.
- *  2. **Overlay** – transparent overlay on top of any content you provide via [backgroundContent].
- *
- * Usage – standalone:
- * ```
- * OfflineScreen(onRetry = { viewModel.retryConnection() })
- * ```
- *
- * Usage – overlay on existing screen:
- * ```
- * OfflineScreen(
- *     onRetry = { viewModel.retry() },
- *     backgroundContent = { ExistingScreen() }
- * )
- * ```
- */
 @Composable
 fun OfflineScreen(
     onRetry:           () -> Unit,
@@ -60,25 +36,20 @@ fun OfflineScreen(
         contentAlignment = Alignment.Center,
         modifier         = modifier.fillMaxSize(),
     ) {
-        // ── Background layer ──────────────────────────────────────────────
         if (backgroundContent != null) {
-            // Caller-provided content (will be blurred/dimmed below)
             Box(modifier = Modifier.fillMaxSize().alpha(0.40f)) {
                 backgroundContent()
             }
         } else {
-            // Built-in skeleton placeholder
             SkeletonBackground()
         }
 
-        // ── Frosted overlay ───────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Background.copy(alpha = 0.60f)),
         )
 
-        // ── Offline card (centered) ───────────────────────────────────────
         OfflineCard(
             title       = title,
             description = description,
@@ -91,9 +62,6 @@ fun OfflineScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// OFFLINE CARD  (the modal content)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun OfflineCard(
     title:       String,
@@ -149,12 +117,10 @@ private fun OfflineCard(
                     .padding(horizontal = 24.dp, vertical = 28.dp),
             ) {
 
-                // ── Wifi-off icon with animated glow ring ─────────────────
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier         = Modifier.size(90.dp),
                 ) {
-                    // Glow ring
                     Box(
                         modifier = Modifier
                             .size(90.dp)
@@ -164,7 +130,6 @@ private fun OfflineCard(
                                 CircleShape,
                             )
                     )
-                    // Icon container
                     Surface(
                         color    = SurfaceContainer,
                         shape    = CircleShape,
@@ -188,7 +153,6 @@ private fun OfflineCard(
 
                 Spacer(Modifier.height(20.dp))
 
-                // Title
                 Text(
                     text       = title,
                     style      = MaterialTheme.typography.titleLarge,
@@ -199,7 +163,6 @@ private fun OfflineCard(
 
                 Spacer(Modifier.height(8.dp))
 
-                // Description
                 Text(
                     text      = description,
                     style     = MaterialTheme.typography.bodyMedium,
@@ -209,7 +172,6 @@ private fun OfflineCard(
 
                 Spacer(Modifier.height(24.dp))
 
-                // Retry button
                 GlowGradientButton(
                     text     = retryLabel,
                     icon     = Icons.Default.Refresh,
@@ -221,9 +183,6 @@ private fun OfflineCard(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SKELETON BACKGROUND  (ghost UI shown behind the offline modal)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun SkeletonBackground() {
     val shimmer = rememberInfiniteTransition(label = "shimmer")
@@ -245,7 +204,6 @@ private fun SkeletonBackground() {
             .alpha(shimmerAlpha),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // Fake top bar
         Row(
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -263,22 +221,17 @@ private fun SkeletonBackground() {
 
         Spacer(Modifier.height(8.dp))
 
-        // Fake hero banner
         SkeletonBox(modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(20.dp)))
 
-        // Fake section title
         SkeletonBox(modifier = Modifier.width(140.dp).height(18.dp).clip(RoundedCornerShape(4.dp)))
 
-        // Fake 2-column grid
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
             SkeletonBox(modifier = Modifier.weight(1f).height(130.dp).clip(RoundedCornerShape(16.dp)))
             SkeletonBox(modifier = Modifier.weight(1f).height(130.dp).clip(RoundedCornerShape(16.dp)))
         }
 
-        // Fake section title 2
         SkeletonBox(modifier = Modifier.width(100.dp).height(18.dp).clip(RoundedCornerShape(4.dp)))
 
-        // Fake list items
         repeat(3) {
             SkeletonBox(modifier = Modifier.fillMaxWidth().height(70.dp).clip(RoundedCornerShape(16.dp)))
         }
@@ -290,9 +243,6 @@ private fun SkeletonBox(modifier: Modifier = Modifier) {
     Box(modifier = modifier.background(SurfaceContainer))
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PREVIEWS
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Preview(
     name        = "OfflineScreen – Standalone",

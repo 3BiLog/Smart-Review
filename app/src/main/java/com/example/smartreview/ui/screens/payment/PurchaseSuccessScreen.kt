@@ -29,7 +29,6 @@ fun PurchaseSuccessScreen(
     enrollmentRepository: EnrollmentRepository = EnrollmentRepositoryProvider.default,
 ) {
     val scope = rememberCoroutineScope()
-    // Lấy uid an toàn từ StateFlow
     val authState by AuthSession.state.collectAsStateWithLifecycle()
     val uid = authState.uid
 
@@ -69,13 +68,10 @@ fun PurchaseSuccessScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        // Gọi lại isEnrolled để kích hoạt refresh cache (nếu repository có cơ chế)
                         if (uid != null) {
                             enrollmentRepository.isEnrolled(uid, courseId)
-                            // Chờ một chút để Firestore cập nhật cache
                             delay(500)
                         }
-                        // Xóa toàn bộ back stack và đi đến CourseDetail
                         navController.navigate(courseDetailRoute(courseId, justPaid = true)) {
                             popUpTo(0) { inclusive = true }
                             launchSingleTop = true

@@ -88,9 +88,6 @@ fun AuthBrandSection(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GLASS TEXT FIELD
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun AuthTextField(
     value:         String,
@@ -150,9 +147,6 @@ fun AuthTextField(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PASSWORD TEXT FIELD (with visibility toggle)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun AuthPasswordField(
     value:            String,
@@ -214,9 +208,6 @@ fun AuthPasswordField(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GRADIENT AUTH BUTTON
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun GradientAuthButton(
     text:      String,
@@ -244,9 +235,6 @@ fun GradientAuthButton(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DIVIDER  "Hoặc tiếp tục với"
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun AuthDivider(label: String = "Hoặc tiếp tục với", modifier: Modifier = Modifier) {
     Row(
@@ -264,9 +252,6 @@ fun AuthDivider(label: String = "Hoặc tiếp tục với", modifier: Modifier 
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SOCIAL BUTTON  (Google / Apple)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun SocialLoginButton(
     label:   String,
@@ -309,9 +294,6 @@ fun SocialLoginButton(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BACKGROUND ORBS  (decorative, no blur required)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun BoxScope.AuthBackgroundOrbs() {
     Box(
@@ -330,9 +312,6 @@ fun BoxScope.AuthBackgroundOrbs() {
     )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FORM CARD + ERROR BANNER
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun AuthFormCard(
     modifier: Modifier = Modifier,
@@ -536,9 +515,6 @@ fun AuthLoadingOverlay(isLoading: Boolean, message: String = "Đang xử lý..."
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AUTH FOOTER LINK
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun AuthFooterText(
     prefix:   String,

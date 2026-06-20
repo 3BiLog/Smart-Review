@@ -115,7 +115,6 @@ class QuizSummaryViewModel(
         }
     }
 
-    /** Tìm bài học tiếp theo trong cùng module. */
     private suspend fun getNextLessonInModule(courseId: String, currentLessonId: String): NextLessonInfo? {
         val course = courseRepository.getCourseById(courseId) ?: return null
 

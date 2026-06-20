@@ -1,9 +1,5 @@
 package com.example.smartreview.data.video
 
-/**
- * Parses YouTube watch / youtu.be / embed URLs into a video id safe for iframe embed.
- * Supports unlisted videos when the full URL is provided.
- */
 object YouTubeVideoUrl {
 
     private val VIDEO_ID_PATTERN = Regex("^[a-zA-Z0-9_-]{11}$")

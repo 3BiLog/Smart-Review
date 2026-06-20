@@ -25,9 +25,6 @@ import com.example.smartreview.ui.screens.lessonsummary.lessonSummaryRoute
 import com.example.smartreview.ui.screens.quiz.quizRoute
 import com.example.smartreview.ui.theme.*
 
-/**
- * Theory / summary step after [com.example.smartreview.ui.screens.lessonplayer.LessonVideoPlayerScreen].
- */
 @Composable
 fun LessonContentScreen(
     navController: NavHostController,

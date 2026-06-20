@@ -6,9 +6,6 @@ import com.example.smartreview.data.model.LessonItem
 import com.example.smartreview.data.model.LessonType
 import com.example.smartreview.data.video.YouTubeVideoUrl
 
-/**
- * Maps courses/{courseId} documents from DA3-master production schema to app domain models.
- */
 object CourseFirestoreMapper {
 
     fun toCourse(documentId: String, data: Map<String, Any>?): Course? {
@@ -28,7 +25,6 @@ object CourseFirestoreMapper {
             progress = 0f,
             xpReward = totalXp,
             price = dto.price ?: 0L,
-            rating = dto.rating?.toFloat() ?: 0f,
             reviewCount = dto.ratingCount?.toInt() ?: 0,
             durationHours = dto.totalDurationHours?.toFloat() ?: 0f,
             instructorName = "",
@@ -38,6 +34,8 @@ object CourseFirestoreMapper {
             category = dto.category.orEmpty(),
             isBestseller = (dto.featuredOrder ?: 0L) > 0L,
             modules = modules,
+            rating = (data["rating"] as? Number)?.toFloat() ?: 0f,
+            ratingCount = (data["ratingCount"] as? Number)?.toLong() ?: 0,
         )
     }
 
@@ -73,12 +71,10 @@ object CourseFirestoreMapper {
                 val videoUrl = lessonDoc.videoUrl.orEmpty()
                 val thumbnail = resolveLessonThumbnail(videoUrl, courseThumbnailUrl, lessonDoc.id)
 
-                // Debug log for lesson type
                 val rawType = lessonDoc.type
                 val lowerType = rawType?.lowercase()
                 android.util.Log.d("CourseFirestoreMapper", "Lesson: id=${lessonDoc.id}, title=${lessonDoc.title}, rawType=$rawType, lowerType=$lowerType")
 
-                // map lesson type string to enum
                 val lessonType = when (lowerType) {
                     "video" -> {
                         android.util.Log.d("CourseFirestoreMapper", "  -> Mapped to VIDEO")

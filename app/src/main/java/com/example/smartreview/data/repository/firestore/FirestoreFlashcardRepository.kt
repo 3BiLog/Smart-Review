@@ -8,9 +8,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
-/**
- * Firestore-backed FlashcardRepository that reads from courses collection.
- */
 class FirestoreFlashcardRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) : FlashcardRepository {
@@ -118,6 +115,6 @@ class FirestoreFlashcardRepository(
     private fun createEmptyDeck(): FlashcardDeck = FlashcardDeck(
         id = "empty",
         title = "No Flashcards Available",
-        cards = listOf()  // FIXED: use listOf() instead of emptyList()
+        cards = listOf()
     )
 }

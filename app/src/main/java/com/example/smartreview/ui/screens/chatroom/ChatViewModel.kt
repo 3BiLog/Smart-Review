@@ -27,7 +27,7 @@ data class ChatUiState(
     val roomName: String = "",
     val messages: List<ChatMessage> = emptyList(),
     val inputText: String = "",
-    val isTyping: Boolean = false,  // FIXED: Default to false
+    val isTyping: Boolean = false,
     val sendError: String? = null,
     val deleteError: String? = null,
     val pendingDeleteMessageId: String? = null,
@@ -127,7 +127,6 @@ class ChatViewModel(
         }
     }
 
-    /** Re-label bubbles when login/logout changes without waiting for a new Firestore snapshot. */
     private fun observeAuthSessionForOwnership() {
         viewModelScope.launch {
             AuthSession.state.collect {
@@ -154,7 +153,6 @@ class ChatViewModel(
         incoming: List<ChatMessage>,
     ): List<ChatMessage> = (current + incoming).distinctBy { it.id }
 
-    // FIXED: Build message with correct fields matching Firestore schema
     private fun buildOutgoingMessage(text: String): ChatMessage {
         val authUser = authRepository.getCurrentUser()
         val senderId = authUser?.uid ?: "me"
@@ -169,11 +167,11 @@ class ChatViewModel(
 
         return ChatMessage(
             id = UUID.randomUUID().toString(),
-            senderId = senderId,           // Maps to "userId" in Firestore
-            senderName = senderName,       // Maps to "userName" in Firestore
+            senderId = senderId,
+            senderName = senderName,
             senderAvatar = senderAvatar,
-            content = text,                // Maps to "text" in Firestore
-            timestamp = now,               // FIXED: Use Timestamp instead of String
+            content = text,
+            timestamp = now,
             type = MessageType.TEXT,
             fileUrl = null,
             fileName = null,

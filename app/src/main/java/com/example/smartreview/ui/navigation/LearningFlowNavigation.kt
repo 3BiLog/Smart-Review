@@ -10,21 +10,10 @@ import com.example.smartreview.ui.screens.lessonplayer.lessonPlayerRoute
 import com.example.smartreview.ui.navigation.Screen
 import com.example.smartreview.ui.screens.reading.readingRoute
 
-/**
- * Canonical routing for the separated learning flow:
- *
- * 1. Course progression — [resolveNextUnlockedLesson], [resolveFirstUnlockedLesson]
- * 2. Video — [lessonVideoRoute] / [navigateLessonVideo]
- * 3. Theory / summary — [lessonContentRoute] / [navigateLessonContent]
- * 4. Quiz — quiz routes (see [com.example.smartreview.ui.screens.quiz.quizRoute])
- * 5. Completion — lesson_summary / course return helpers
- */
 object LearningFlowNavigation {
 
-    /** Always enter a lesson through the video screen (placeholder if no URL). */
     fun lessonVideoRoute(lessonId: String): String = lessonPlayerRoute(lessonId)
 
-    /** @deprecated Use [lessonVideoRoute]; kept for resume/progression callers. */
     fun lessonEntryRoute(lessonId: String): String = lessonVideoRoute(lessonId)
 
     fun resolveNextUnlockedLesson(
@@ -38,13 +27,9 @@ object LearningFlowNavigation {
         return lessons.firstOrNull { !it.isLocked }
     }
 
-    /** First unlocked lesson in catalog order (Hero Play). */
     fun resolveFirstUnlockedLesson(course: Course): LessonItem? =
         course.modules.flatMap { it.lessons }.firstOrNull { !it.isLocked }
 
-    /**
-     * Navigate to lesson video. If courseId is known, build canonical route with courseId.
-     */
     fun NavHostController.navigateLessonVideo(lessonId: String, courseId: String? = null) {
         if (!courseId.isNullOrBlank()) {
             val route = RouteHelpers.lessonPlayerRoute(courseId, lessonId)
@@ -63,7 +48,6 @@ object LearningFlowNavigation {
         }
     }
 
-    /** @deprecated Use [navigateLessonVideo]. */
     fun NavHostController.navigateLessonEntry(lessonId: String) = navigateLessonVideo(lessonId)
 
     fun NavHostController.navigateReading(lessonId: String) {
@@ -78,7 +62,6 @@ object LearningFlowNavigation {
         }
     }
 
-    /** Hero: first unlocked lesson in the course — route by lesson type. */
     fun NavHostController.navigateHeroPlay(course: Course) {
         val lesson = resolveFirstUnlockedLesson(course) ?: return
         when (lesson.lessonType) {
@@ -91,9 +74,6 @@ object LearningFlowNavigation {
         }
     }
 
-    /**
-     * Start / Continue: next incomplete unlocked lesson (or preferred), route by lesson type.
-     */
     fun NavHostController.navigateStartLearning(
         course: Course,
         preferredLessonId: String? = null,
@@ -109,11 +89,6 @@ object LearningFlowNavigation {
         }
     }
 
-    /**
-     * ✅ Navigate to the next uncompleted lesson in course (for Continue Learning)
-     * @param course The course to continue
-     * @param nextLessonId The ID of the next lesson to complete (can be null if course is completed)
-     */
     fun NavHostController.navigateContinueLearning(course: Course, nextLessonId: String?) {
         if (nextLessonId != null) {
             android.util.Log.d("LearningFlowNavigation", "navigateContinueLearning: course=${course.title}, nextLessonId=$nextLessonId")
@@ -125,9 +100,6 @@ object LearningFlowNavigation {
         }
     }
 
-    /**
-     * ✅ Navigate to course detail screen
-     */
     fun NavHostController.navigateToCourseDetail(courseId: String) {
         navigate(courseDetailRoute(courseId)) {
             launchSingleTop = true
@@ -150,9 +122,6 @@ object LearningFlowNavigation {
         popBackStack(Screen.Home.route, inclusive = false)
     }
 
-    /**
-     * ✅ Navigate to a specific lesson by ID with optional course context
-     */
     fun NavHostController.navigateToLesson(lessonId: String, courseId: String? = null) {
         val lessonType = getLessonType(lessonId)
         when (lessonType) {
@@ -163,18 +132,10 @@ object LearningFlowNavigation {
         }
     }
 
-    /**
-     * ✅ Helper function to get lesson type (placeholder - should be implemented with actual data)
-     */
     private fun getLessonType(lessonId: String): LessonType {
-        // This should be implemented to fetch from repository
-        // For now, default to VIDEO
         return LessonType.VIDEO
     }
 
-    /**
-     * ✅ Navigate and clear back stack (useful for logout or reset)
-     */
     fun NavHostController.navigateAndClear(route: String) {
         navigate(route) {
             popUpTo(0) { inclusive = true }
@@ -182,9 +143,6 @@ object LearningFlowNavigation {
         }
     }
 
-    /**
-     * ✅ Pop back to home screen
-     */
     fun NavHostController.popToHome() {
         popBackStack(Screen.Home.route, inclusive = false)
     }

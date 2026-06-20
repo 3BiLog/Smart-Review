@@ -3,9 +3,6 @@ package com.example.smartreview.data.remote.firestore
 import com.example.smartreview.data.model.LeaderboardEntry
 import com.example.smartreview.data.model.UserProfile
 
-/**
- * Maps Firestore user profiles to ranked leaderboard entries.
- */
 object LeaderboardFirestoreMapper {
 
     const val LEADERBOARD_LIMIT = 50L

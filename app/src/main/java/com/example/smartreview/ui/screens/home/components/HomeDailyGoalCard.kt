@@ -86,7 +86,6 @@ internal fun HomeDailyGoalCard(
                     val topLeft = Offset((size.width - radius * 2) / 2f, (size.height - radius * 2) / 2f)
                     val arcSize = Size(radius * 2, radius * 2)
 
-                    // Background
                     drawArc(
                         color = SurfaceVariant,
                         startAngle = -90f,
@@ -97,7 +96,6 @@ internal fun HomeDailyGoalCard(
                         size = arcSize,
                     )
 
-                    // Progress
                     val sweepAngle = 360f * progress.coerceAtMost(1f)
                     drawArc(
                         brush = Brush.linearGradient(

@@ -12,9 +12,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.UUID
 
-/**
- * Completes a course-linked quiz and prepares lesson completion summary data.
- */
 object LessonFlowCompletion {
 
     data class LessonSummaryHandoff(

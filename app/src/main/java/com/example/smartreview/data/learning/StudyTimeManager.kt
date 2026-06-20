@@ -1,5 +1,7 @@
 package com.example.smartreview.data.learning
 
+import android.content.Context
+import android.content.SharedPreferences
 import com.example.smartreview.data.repository.UserRepository
 import com.example.smartreview.data.repository.UserRepositoryProvider
 import kotlinx.coroutines.*
@@ -8,21 +10,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.Calendar
 
-/**
- * Tracks study time while the user is on learning screens.
- * Only counts time when the app is in the foreground.
- */
 object StudyTimeManager {
     private const val TAG = "StudyTimeManager"
     private const val TICK_INTERVAL_MS = 10_000L
+    private const val PREF_NAME = "study_time_session"
+    private const val KEY_LAST_DATE = "last_date"
+    private const val KEY_FLUSHED_MINUTES = "flushed_minutes"
 
     private var trackingJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val userRepository: UserRepository = UserRepositoryProvider.default
+    private lateinit var prefs: SharedPreferences
 
-    /** Minutes in the current session not yet reflected in Firestore todayStudyTime. */
     private val _pendingMinutes = MutableStateFlow(0L)
     val totalStudyMinutes: StateFlow<Long> = _pendingMinutes.asStateFlow()
 
@@ -46,6 +48,36 @@ object StudyTimeManager {
         "PomodoroScreen",
     )
 
+    fun init(context: Context) {
+        prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        resetIfNewDay()
+        // Load flushed minutes from last session
+        flushedMinutes = prefs.getLong(KEY_FLUSHED_MINUTES, 0)
+        _pendingMinutes.value = 0L
+    }
+
+    private fun resetIfNewDay() {
+        val today = getTodayDateKey()
+        val lastDate = prefs.getString(KEY_LAST_DATE, null)
+        if (lastDate != today) {
+            // New day: reset all session state
+            prefs.edit()
+                .putString(KEY_LAST_DATE, today)
+                .putLong(KEY_FLUSHED_MINUTES, 0)
+                .apply()
+            flushedMinutes = 0L
+            foregroundAccumulatedMs = 0L
+            segmentStartMs = 0L
+            _pendingMinutes.value = 0L
+            android.util.Log.d(TAG, "New day detected – study time reset")
+        }
+    }
+
+    private fun getTodayDateKey(): String {
+        val cal = Calendar.getInstance()
+        return "${cal.get(Calendar.YEAR)}-${cal.get(Calendar.MONTH) + 1}-${cal.get(Calendar.DAY_OF_MONTH)}"
+    }
+
     fun startTracking(screenName: String, onGoalCompleted: ((Long) -> Unit)? = null) {
         if (isTracking && currentScreen == screenName) return
 
@@ -53,12 +85,13 @@ object StudyTimeManager {
             runBlockingFlush()
         }
 
+        resetIfNewDay()
+
         this.onGoalCompleted = onGoalCompleted
         currentScreen = screenName
         isTracking = true
         isAppInForeground = true
         foregroundAccumulatedMs = 0L
-        flushedMinutes = 0L
         segmentStartMs = System.currentTimeMillis()
         _pendingMinutes.value = 0L
 
@@ -100,6 +133,7 @@ object StudyTimeManager {
 
     fun onAppResumed() {
         if (!isTracking || currentScreen == null) return
+        resetIfNewDay()
         isAppInForeground = true
         segmentStartMs = System.currentTimeMillis()
         startTickLoop()
@@ -171,6 +205,7 @@ object StudyTimeManager {
                 if (!success) return
 
                 flushedMinutes += toSave
+                prefs.edit().putLong(KEY_FLUSHED_MINUTES, flushedMinutes).apply()
                 refreshPendingFlow()
 
                 android.util.Log.d(TAG, "Saved $toSave min (flushed=$flushedMinutes)")
@@ -187,5 +222,21 @@ object StudyTimeManager {
                 android.util.Log.e(TAG, "Error saving study time", e)
             }
         }
+    }
+
+    fun forceResetDaily() {
+        prefs.edit()
+            .putString(KEY_LAST_DATE, getTodayDateKey())
+            .putLong(KEY_FLUSHED_MINUTES, 0)
+            .apply()
+        flushedMinutes = 0L
+        foregroundAccumulatedMs = 0L
+        segmentStartMs = 0L
+        _pendingMinutes.value = 0L
+        android.util.Log.d(TAG, "Force reset daily")
+    }
+
+    fun checkAndResetDaily() {
+        resetIfNewDay()
     }
 }

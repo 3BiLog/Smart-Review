@@ -28,10 +28,6 @@ class LearningProgressionPolicy(
         val recommendedNextLessonTitle: String? = null,
     )
 
-    /**
-     * ✅ Version non-suspend - chỉ dựa vào completedLessonIds, không kiểm tra quiz
-     * Dùng cho các trường hợp cần tính nhanh, không cần chính xác tuyệt đối
-     */
     fun applyToCourseFast(template: Course, snapshot: ProgressSnapshot): CourseProgressResult {
         val orderedLessonIds = template.modules.flatMap { module ->
             module.lessons.map { it.id }
@@ -48,7 +44,6 @@ class LearningProgressionPolicy(
             )
         }
 
-        // ✅ Chỉ đếm lesson đã hoàn thành (không kiểm tra quiz)
         val completedCount = orderedLessonIds.count { lessonId ->
             lessonId in snapshot.completedLessonIds
         }
@@ -68,10 +63,6 @@ class LearningProgressionPolicy(
         )
     }
 
-    /**
-     * ✅ Version suspend - kiểm tra đầy đủ cả quiz
-     * Dùng khi cần độ chính xác cao
-     */
     suspend fun applyToCourse(template: Course, snapshot: ProgressSnapshot): CourseProgressResult {
         val orderedLessonIds = template.modules.flatMap { module ->
             module.lessons.map { it.id }
@@ -110,9 +101,6 @@ class LearningProgressionPolicy(
         )
     }
 
-    /**
-     * ✅ Kiểm tra lesson đã hoàn thành đầy đủ (bao gồm cả quiz bên trong)
-     */
     suspend fun isLessonFullyComplete(lessonId: String, snapshot: ProgressSnapshot): Boolean {
         if (lessonId !in snapshot.completedLessonIds) return false
         val requiredQuizzes = requiredQuizIdsForLesson(lessonId)
@@ -120,9 +108,6 @@ class LearningProgressionPolicy(
         return requiredQuizzes.all { it in snapshot.completedQuizIds }
     }
 
-    /**
-     * ✅ Lấy danh sách quiz IDs bắt buộc trong lesson
-     */
     suspend fun requiredQuizIdsForLesson(lessonId: String): Set<String> = withContext(Dispatchers.IO) {
         val lesson = lessonRepository.getLesson(lessonId) ?: return@withContext emptySet()
         return@withContext lesson.blocks
@@ -131,9 +116,6 @@ class LearningProgressionPolicy(
             .toSet()
     }
 
-    /**
-     * ✅ Version nhanh để tìm lesson tiếp theo (chỉ dựa vào completedLessonIds)
-     */
     private fun findRecommendedNextFast(
         modules: List<CourseModule>,
         snapshot: ProgressSnapshot,
@@ -148,9 +130,6 @@ class LearningProgressionPolicy(
         return null to null
     }
 
-    /**
-     * ✅ Version đầy đủ để tìm lesson tiếp theo (kiểm tra cả quiz)
-     */
     private suspend fun findRecommendedNext(
         modules: List<CourseModule>,
         snapshot: ProgressSnapshot,

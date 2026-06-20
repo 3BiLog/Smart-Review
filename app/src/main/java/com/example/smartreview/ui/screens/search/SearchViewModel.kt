@@ -32,8 +32,8 @@ data class SearchUiState(
     val suggestions: List<String> = listOf(
         "React", "Compose", "Android", "Sản phẩm", "ViewModel",
     ),
-    val isLoading: Boolean = true,  // ✅ Thêm loading state
-    val error: String? = null,      // ✅ Thêm error state
+    val isLoading: Boolean = true,
+    val error: String? = null,
 )
 
 class SearchViewModel(
@@ -123,7 +123,6 @@ class SearchViewModel(
             SortOption.RATING -> list.sortedByDescending { it.rating }
         }
 
-    // ✅ Sửa: loadCatalog chạy trong coroutine
     private fun loadCatalog() {
         viewModelScope.launch {
             try {

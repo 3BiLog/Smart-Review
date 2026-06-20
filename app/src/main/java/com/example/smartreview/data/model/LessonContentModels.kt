@@ -1,14 +1,10 @@
 package com.example.smartreview.data.model
 
-/**
- * Local-first lesson content (blocks). Not synced to Firestore yet.
- */
 enum class LessonBlockType {
     HEADING,
     TEXT,
     IMAGE,
     TIP,
-    /** Placeholder for future quiz integration — links via [LessonBlock.quizStubId]. */
     QUIZ_STUB,
 }
 
@@ -30,7 +26,6 @@ data class LessonContent(
     val subtitle: String,
     val estimatedMinutes: Int,
     val blocks: List<LessonBlock>,
-    /** YouTube watch / youtu.be / embed URL (unlisted supported). Empty = no video. */
     val videoUrl: String = "",
     val xpReward: Int = 50,
 )

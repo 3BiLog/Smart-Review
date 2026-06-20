@@ -11,14 +11,10 @@ import com.example.smartreview.data.repository.CourseCache
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
-/**
- * Firestore-backed LessonRepository implemented using existing DA3 schema.
- */
 class FirestoreLessonRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) : LessonRepository {
 
-    // ✅ Sửa thành suspend function, dùng await() thay vì Tasks.await
     override suspend fun getLesson(lessonId: String): LessonContent? {
         if (lessonId.isBlank()) return null
 
@@ -26,7 +22,7 @@ class FirestoreLessonRepository(
             val snapshot = firestore.collection(CourseFirestorePaths.COURSES)
                 .whereEqualTo(CourseFirestorePaths.Fields.STATUS, "published")
                 .get()
-                .await()  // ✅ suspend await
+                .await()
 
             for (doc in snapshot.documents) {
                 val course = CourseFirestoreMapper.toCourse(doc.id, doc.data)
@@ -47,7 +43,6 @@ class FirestoreLessonRepository(
         }
     }
 
-    // ✅ Sửa thành suspend function
     override suspend fun getLessonsForCourse(courseId: String): List<LessonContent> {
         if (courseId.isBlank()) return emptyList()
 
@@ -56,7 +51,7 @@ class FirestoreLessonRepository(
             val doc = firestore.collection(CourseFirestorePaths.COURSES)
                 .document(courseId)
                 .get()
-                .await()  // ✅ suspend await
+                .await()
             if (!doc.exists()) return emptyList()
             CourseFirestoreMapper.toCourse(doc.id, doc.data)
         } catch (e: Exception) {
@@ -72,7 +67,6 @@ class FirestoreLessonRepository(
         }
     }
 
-    // Helpers (không cần suspend)
     private fun lessonItemToContent(lesson: LessonItem, courseId: String?, moduleId: String? = null): LessonContent {
         return LessonContent(
             id = lesson.id,

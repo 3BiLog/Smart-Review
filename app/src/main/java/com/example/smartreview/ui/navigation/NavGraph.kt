@@ -19,6 +19,8 @@ import com.example.smartreview.ui.screens.courses.CourseListScreen
 import com.example.smartreview.ui.screens.courses.COURSES_LIST_ROUTE
 import com.example.smartreview.ui.screens.coursedetail.CourseDetailScreen
 import com.example.smartreview.ui.screens.coursedetail.COURSE_DETAIL_ROUTE
+import com.example.smartreview.ui.screens.coursereviews.CourseReviewsScreen
+import com.example.smartreview.ui.screens.coursereviews.COURSE_REVIEWS_ROUTE
 import com.example.smartreview.ui.screens.lesson.LessonScreen
 import com.example.smartreview.ui.screens.lesson.LESSON_ROUTE
 import com.example.smartreview.ui.screens.lessonplayer.LessonVideoPlayerScreen
@@ -58,7 +60,6 @@ sealed class Screen(val route: String) {
     object Pomodoro  : Screen("pomodoro")
 }
 
-// ✅ Animation constants
 private const val ANIMATION_DURATION = 300
 const val FORGOT_PASSWORD_ROUTE = "forgot_password"
 
@@ -91,7 +92,6 @@ fun SmartReviewNavGraph(navController: NavHostController) {
             },
         )
 
-        // ✅ Main screens
         composable(Screen.Home.route) { HomeScreen(navController) }
         composable(Screen.Pomodoro.route) { PomodoroScreen(navController) }
         composable(Screen.Profile.route) { ProfileScreen(navController) }
@@ -120,7 +120,29 @@ fun SmartReviewNavGraph(navController: NavHostController) {
             )
         }
 
-        // ✅ Main lesson player route with courseId parameter
+        composable(
+            route = COURSE_REVIEWS_ROUTE,
+            arguments = listOf(
+                navArgument("courseId") { type = NavType.StringType },
+                navArgument("courseTitle") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+            ),
+        ) { backStackEntry ->
+            val encodedTitle = backStackEntry.arguments?.getString("courseTitle").orEmpty()
+            val courseTitle = if (encodedTitle.isBlank()) {
+                ""
+            } else {
+                java.net.URLDecoder.decode(encodedTitle, Charsets.UTF_8.name())
+            }
+            CourseReviewsScreen(
+                navController = navController,
+                courseId = backStackEntry.arguments?.getString("courseId").orEmpty(),
+                courseTitle = courseTitle,
+            )
+        }
+
         composable(
             route = RouteHelpers.LESSON_PLAYER_ROUTE,
             arguments = listOf(
@@ -147,7 +169,6 @@ fun SmartReviewNavGraph(navController: NavHostController) {
             }
         }
 
-        // ✅ Legacy single-arg route (backwards compatibility)
         composable(
             route = LESSON_PLAYER_ROUTE,
             arguments = listOf(navArgument("lessonId") { type = NavType.StringType })
@@ -251,7 +272,6 @@ fun SmartReviewNavGraph(navController: NavHostController) {
             }
         }
 
-        // ✅ Flashcard route with lessonId parameter
         composable(
             route = "flashcard/{lessonId}",
             arguments = listOf(navArgument("lessonId") { type = NavType.StringType })
@@ -308,7 +328,6 @@ fun SmartReviewNavGraph(navController: NavHostController) {
     }
 }
 
-// ✅ Extension functions for navigation
 
 fun NavHostController.navigateSingleTop(route: String) {
     navigate(route) {

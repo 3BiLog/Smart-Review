@@ -2,12 +2,6 @@ package com.example.smartreview.data.remote.firestore
 
 import com.google.firebase.Timestamp
 
-/**
- * Firestore document shape for users/{uid}.
- *
- * Field names match the production Firestore schema exactly.
- * Document ID is the Firebase UID and is not duplicated in this DTO.
- */
 data class UserDocument(
     val name: String? = null,
     val email: String? = null,
@@ -25,7 +19,6 @@ data class UserDocument(
     val bannedAt: Timestamp? = null,
     val bannedUntil: Timestamp? = null,
     val bannedReason: String? = null,
-    // ✅ NEW
     val dailyGoal: Long? = null,
     val todayStudyTime: Long? = null,
     val lastResetDate: Timestamp? = null,

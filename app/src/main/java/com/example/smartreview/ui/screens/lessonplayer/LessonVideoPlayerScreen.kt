@@ -37,11 +37,9 @@ import com.example.smartreview.ui.navigation.RouteHelpers
 import com.example.smartreview.ui.theme.*
 import kotlinx.coroutines.delay
 
-// ─── Route ───────────────────────────────────────────────────────────────────
 const val LESSON_PLAYER_ROUTE = "lesson_player/{lessonId}"
 fun lessonPlayerRoute(lessonId: String) = "lesson_player/$lessonId"
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
 @Composable
 fun LessonVideoPlayerScreen(
     navController: NavHostController,
@@ -53,12 +51,10 @@ fun LessonVideoPlayerScreen(
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     val lesson = state.currentLesson ?: return
-    // ✅ Track goal completion with state
     var showGoalCompleted by remember { mutableStateOf(false) }
     var xpEarned by remember { mutableStateOf(0L) }
     val context = LocalContext.current
 
-    // ✅ Callback to update state when goal completed
     val onGoalCompleted: (Long) -> Unit = remember {
         { xp ->
             xpEarned = xp
@@ -66,7 +62,6 @@ fun LessonVideoPlayerScreen(
         }
     }
 
-    // ✅ Show toast when goal completed
     if (showGoalCompleted) {
         LaunchedEffect(showGoalCompleted) {
             Toast.makeText(
@@ -94,7 +89,6 @@ fun LessonVideoPlayerScreen(
     }
 
 
-    // ✅ Dialog xác nhận hoàn thành
     if (state.showCompleteDialog) {
         val isFromUpNext = state.selectedNextLesson != null
         val targetLesson = state.selectedNextLesson ?: state.upNextLessons.firstOrNull()
@@ -133,7 +127,6 @@ fun LessonVideoPlayerScreen(
                 Button(
                     onClick = {
                         if (isFromUpNext && targetLesson != null) {
-                            // ✅ Từ Up Next - chuyển đến lesson đã chọn
                             vm.completeLessonAndNavigateToSelected { selectedLesson ->
                                 if (selectedLesson != null) {
                                     navigateToLesson(navController, selectedLesson, courseId, lesson.id)
@@ -142,7 +135,6 @@ fun LessonVideoPlayerScreen(
                                 }
                             }
                         } else {
-                            // ✅ Từ nút "Bài học tiếp theo" - chuyển đến lesson mặc định
                             vm.completeLessonAndContinue { nextLessonId ->
                                 if (nextLessonId != null) {
                                     val targetRoute = if (courseId.isNullOrBlank()) {
@@ -202,13 +194,11 @@ fun LessonVideoPlayerScreen(
                     .padding(padding),
                 contentPadding = PaddingValues(bottom = 24.dp),
             ) {
-                // ── 1. Lesson Player Area ──────────────────────────────────────
                 item {
                     val hasBlocks = state.hasContentBlocks
                     val nextLesson = state.upNextLessons.firstOrNull()
                     val ctaText = if (hasBlocks) "Tiếp tục — Tóm tắt bài học" else (if (nextLesson != null) "Bài học tiếp theo" else "Hoàn thành khóa học")
 
-                    // ✅ Hiển thị component theo loại lesson
                     when (lesson.lessonType) {
                         LessonType.VIDEO, LessonType.UNKNOWN -> {
                             VideoPlayerArea(
@@ -222,7 +212,6 @@ fun LessonVideoPlayerScreen(
                                     } else {
                                         val nextLessonCandidate = state.upNextLessons.firstOrNull()
                                         if (nextLessonCandidate != null) {
-                                            // Same flow as "Up Next": preselect next lesson then confirm.
                                             vm.setSelectedNextLesson(nextLessonCandidate)
                                         } else {
                                             vm.clearSelectedNextLesson()
@@ -308,7 +297,6 @@ fun LessonVideoPlayerScreen(
                     )
                 }
 
-                // ✅ Sửa Up Next items - hiển thị dialog khi click
                 items(state.upNextLessons, key = { it.id }) { playlistItem ->
                     PlaylistItem(
                         item = playlistItem,
@@ -326,7 +314,6 @@ fun LessonVideoPlayerScreen(
     }
 }
 
-// ✅ Hàm helper để navigate đến lesson
 private fun navigateToLesson(
     navController: NavHostController,
     lesson: LessonItem,
@@ -370,9 +357,6 @@ private fun navigateToLesson(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// VIDEO PLAYER AREA
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun VideoPlayerArea(
     videoId: String?,
@@ -618,9 +602,6 @@ private fun ReadingLessonPreview(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FLASHCARD LESSON PREVIEW
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun FlashcardLessonPreview(
     lesson: LessonItem,
@@ -711,9 +692,6 @@ private fun FlashcardLessonPreview(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LESSON INFO CARD
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun LessonInfoCard(
     lesson: LessonItem,
@@ -797,9 +775,6 @@ private fun StatItem(icon: androidx.compose.ui.graphics.vector.ImageVector, text
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TAGS ROW
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun LessonTagsRow(tags: List<String>, modifier: Modifier = Modifier) {
     Row(
@@ -823,9 +798,6 @@ private fun LessonTagsRow(tags: List<String>, modifier: Modifier = Modifier) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PLAYLIST ITEM
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun PlaylistItem(
     item: LessonItem,
@@ -948,9 +920,6 @@ private fun PlaylistItem(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TOP BAR
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun LessonPlayerTopBar(onBack: () -> Unit) {
     Surface(color = GlassBg, tonalElevation = 0.dp) {
@@ -978,7 +947,6 @@ private fun LessonPlayerTopBar(onBack: () -> Unit) {
     }
 }
 
-// ─── Extension ───────────────────────────────────────────────────────────────
 private fun Modifier.alpha(alpha: Float) = this.then(
     Modifier.graphicsLayer { this.alpha = alpha }
 )

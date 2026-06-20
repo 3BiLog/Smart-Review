@@ -1,19 +1,5 @@
 package com.example.smartreview.data.model
 
-/**
- * Flashcard models matching Firestore schema from Web Admin
- *
- * Firestore structure:
- * courses/{courseId}/modules/{moduleId}/lessons/{lessonId}
- *   type: "flashcard"
- *   content.data {
- *     cards: [{
- *       id, front, back, hint
- *     }]
- *   }
- */
-
-// NEW MODEL for Firestore
 data class Flashcard(
     val id: String = "",
     val front: String = "",
@@ -32,7 +18,6 @@ data class FlashcardDeck(
     val lessonId: String? = null
 )
 
-// Keep old model for backward compatibility (deprecate later)
 @Deprecated("Use Flashcard with front/back instead")
 data class FlashcardCard(
     val id: String,
@@ -45,7 +30,7 @@ enum class CardStudyStatus {
     UNSEEN,
     KNOWN,
     REPEAT,
-    LEARNING  // Added for new flow
+    LEARNING
 }
 
 data class FlashcardSessionResult(
@@ -74,7 +59,6 @@ data class FlashcardSessionResult(
     }
 }
 
-// Extension to convert from Firestore Flashcard to old FlashcardCard format
 fun Flashcard.toLegacyCard(index: Int): FlashcardCard = FlashcardCard(
     id = this.id,
     question = this.front,

@@ -36,11 +36,7 @@ fun HomeScreen(
     val state by vm.uiState.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    // ✅ Observe study time from StudyTimeManager
-    val studyMinutes by StudyTimeManager.totalStudyMinutes.collectAsState()
-
-    // ✅ Calculate real-time study time
-    val currentStudyMinutes = state.goalCurrent + studyMinutes.toInt()
+    val currentStudyMinutes = state.goalCurrent
     val isGoalCompleted = currentStudyMinutes >= state.goalTarget
 
     DisposableEffect(lifecycle) {
@@ -73,7 +69,6 @@ fun HomeScreen(
         ) {
             Spacer(Modifier.height(16.dp))
 
-            // ✅ Update Daily Goal Card with real-time data
             HomeDailyGoalCard(
                 progress = if (state.goalTarget > 0)
                     (currentStudyMinutes.toFloat() / state.goalTarget).coerceAtMost(1f)
@@ -87,7 +82,6 @@ fun HomeScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // ✅ Phần "Tiếp tục học" - Hiển thị các course đang học dở
             SectionHeader(
                 title = "Tiếp tục học",
                 linkText = if (state.inProgressCourses.isNotEmpty()) "Xem tất cả" else null,
@@ -101,7 +95,6 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(state.inProgressCourses, key = { it.id }) { course ->
-                        // Tìm CourseCard tương ứng để lấy progress
                         val cardData = state.continueCourses.find { it.id == course.id }
                         val progress = cardData?.progress ?: 0f
                         val timeLeft = cardData?.timeLeft ?: "Đang học"

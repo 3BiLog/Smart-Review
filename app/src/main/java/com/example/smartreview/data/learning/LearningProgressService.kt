@@ -11,9 +11,6 @@ import com.example.smartreview.data.model.UserLearningProgress
 import com.example.smartreview.data.repository.LearningProgressRepository
 import com.example.smartreview.data.repository.LearningProgressRepositoryProvider
 
-/**
- * Authenticated learning progress API (persist + resume). Gamification remains separate.
- */
 class LearningProgressService(
     private val repository: LearningProgressRepository = LearningProgressRepositoryProvider.default,
     private val progressionResolver: LearningProgressionResolver = LearningProgressionResolver(),

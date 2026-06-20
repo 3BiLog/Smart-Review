@@ -183,7 +183,6 @@ class PaymentMethodViewModel(
                     orderCode = state.pendingOrderCode,
                 )
                 if (currentResult.isSuccess && currentResult.getOrNull()?.status == "pending") {
-                    // Nếu vẫn pending, thử lại sau delay
                     if (retryCount < maxRetries - 1) {
                         android.util.Log.d("PaymentVM", "Status pending, retry in ${delayMs}ms (attempt ${retryCount+1}/$maxRetries)")
                         delay(delayMs)
@@ -198,7 +197,6 @@ class PaymentMethodViewModel(
             }
 
             if (result == null) {
-                // Nếu vẫn null sau tất cả retry, coi như thất bại
                 _uiState.update {
                     it.copy(
                         isProcessingPayment = false,

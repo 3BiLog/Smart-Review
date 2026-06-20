@@ -1,14 +1,5 @@
 package com.example.smartreview.data.content
 
-/**
- * Stable local-first identifiers (Firestore/admin compatible).
- *
- * Pattern:
- * - course_{slug}
- * - module_{courseKey}_{index}
- * - lesson_{courseKey}_{slug}
- * - quiz_lesson_{courseKey}_{slug}  (1:1 with lesson when present)
- */
 object ContentIds {
 
     object Course {

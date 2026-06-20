@@ -22,7 +22,6 @@ console.log("CHECKSUM_EXISTS =", !!process.env.PAYOS_CHECKSUM_KEY);
 }
 
 export function generateOrderCode() {
-  // PayOS requires a unique positive integer order code
   const base = Date.now() % 2_000_000_000;
   const rand = Math.floor(Math.random() * 1000);
   return base + rand;

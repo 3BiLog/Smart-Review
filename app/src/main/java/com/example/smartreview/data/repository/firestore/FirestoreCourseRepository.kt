@@ -13,11 +13,6 @@ import com.google.firebase.firestore.ListenerRegistration
 import javax.inject.Inject
 import com.example.smartreview.data.repository.CourseCache
 
-/**
- * Firestore-backed course catalog aligned with DA3-master production schema.
- *
- * Reads courses/{courseId} via [CourseFirestoreMapper] — no direct POJO deserialization.
- */
 class FirestoreCourseRepository @Inject constructor(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) : CourseRepository {
@@ -28,13 +23,11 @@ class FirestoreCourseRepository @Inject constructor(
 
         val registration: ListenerRegistration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                // ignore transient errors but do not close the flow
                 return@addSnapshotListener
             }
             val courses = snapshot?.documents?.mapNotNull { doc ->
                 CourseFirestoreMapper.toCourse(doc.id, doc.data)
             } ?: emptyList()
-            // refresh cache: clear then repopulate to reflect deletes
             CourseCache.clear()
             courses.forEach { CourseCache.put(it) }
             trySend(courses).isSuccess
@@ -56,7 +49,6 @@ class FirestoreCourseRepository @Inject constructor(
     }
 
     override suspend fun getCourseWithProgress(courseId: String, userId: String): Any? {
-        // Progress collection integration is deferred to Phase 5B.
         return getCourseById(courseId)
     }
 
@@ -71,7 +63,6 @@ class FirestoreCourseRepository @Inject constructor(
     }
 
     override suspend fun getCourseReviews(courseId: String): List<Any> {
-        // Reviews collection integration is deferred to a later phase.
         return emptyList()
     }
 }

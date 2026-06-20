@@ -68,7 +68,6 @@ fun ChatRoomScreen(
         )
     }
 
-    // Scroll to bottom when messages change
     LaunchedEffect(state.messages.size) {
         if (state.messages.isNotEmpty())
             scope.launch { listState.animateScrollToItem(state.messages.size - 1) }
@@ -115,7 +114,6 @@ fun ChatRoomScreen(
                 }
             }
 
-            // Typing indicator
             if (state.isTyping) {
                 item { TypingIndicator() }
             }
@@ -123,7 +121,6 @@ fun ChatRoomScreen(
     }
 }
 
-// Helper function to format timestamp
 private fun formatTimestamp(timestamp: com.google.firebase.Timestamp?): String {
     if (timestamp == null) return ""
     val date = timestamp.toDate()
@@ -144,9 +141,6 @@ private fun isToday(date: Date): Boolean {
             today.get(Calendar.DAY_OF_YEAR) == target.get(Calendar.DAY_OF_YEAR)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TOP BAR
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun ChatTopBar(roomName: String, onBack: () -> Unit) {
     Surface(color = GlassBg, tonalElevation = 0.dp) {
@@ -200,9 +194,6 @@ private fun ChatTopBar(roomName: String, onBack: () -> Unit) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MESSAGE BUBBLES
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun DateSeparator(label: String) {
     Box(
@@ -261,7 +252,6 @@ private fun TextMessageBubble(
             }
         }
     } else {
-        // Received – left-aligned, glass bubble
         Row(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -298,7 +288,6 @@ private fun TextMessageBubble(
 @Composable
 private fun ImageMessageBubble(message: ChatMessage) {
     val formattedTime = formatTimestamp(message.timestamp)
-    // FIXED: Use fileUrl instead of imageUrl
     val imageUrl = message.fileUrl
 
     Row(
@@ -338,9 +327,6 @@ private fun ImageMessageBubble(message: ChatMessage) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TYPING INDICATOR
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun TypingIndicator() {
     val transition = rememberInfiniteTransition(label = "typing")
@@ -394,9 +380,6 @@ private fun TypingIndicator() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CHAT INPUT BAR
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun ChatInputBar(text: String, onChange: (String) -> Unit, onSend: () -> Unit) {
     Surface(color = GlassBg, tonalElevation = 0.dp) {
@@ -441,7 +424,6 @@ private fun ChatInputBar(text: String, onChange: (String) -> Unit, onSend: () ->
                 modifier = Modifier.weight(1f),
             )
 
-            // Send button
             Box(
                 contentAlignment = Alignment.Center,
                 modifier         = Modifier

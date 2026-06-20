@@ -1,17 +1,8 @@
 package com.example.smartreview.data.remote.firestore
 
-/**
- * Firestore paths and field names for user profiles.
- *
- * Production structure:
- * - users/{uid}
- */
 object UserFirestorePaths {
     const val USERS = "users"
 
-    /**
-     * Field names on users/{uid} — must match Web Admin / production Firestore schema.
-     */
     object Fields {
         const val NAME = "name"
         const val EMAIL = "email"
@@ -29,7 +20,6 @@ object UserFirestorePaths {
         const val BANNED_AT = "bannedAt"
         const val BANNED_UNTIL = "bannedUntil"
         const val BANNED_REASON = "bannedReason"
-        // ✅ NEW
         const val DAILY_GOAL = "dailyGoal"
         const val TODAY_STUDY_TIME = "todayStudyTime"
         const val LAST_RESET_DATE = "lastResetDate"

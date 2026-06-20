@@ -37,19 +37,18 @@ import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateHero
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateLessonVideo
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateStartLearning
 import com.example.smartreview.ui.navigation.LearningFlowNavigation.navigateReading
+import com.example.smartreview.ui.screens.coursereviews.courseReviewsRoute
 import com.example.smartreview.ui.screens.payment.PaymentRoutes
 import com.example.smartreview.ui.screens.quiz.quizRoute
 import com.example.smartreview.ui.theme.*
 import kotlinx.coroutines.delay
 
-// ─── Route ───────────────────────────────────────────────────────────────────
 const val COURSE_DETAIL_ROUTE = "course_detail/{courseId}?justPaid={justPaid}"
 
 fun courseDetailRoute(courseId: String, justPaid: Boolean = false): String {
     return "course_detail/$courseId?justPaid=$justPaid"
 }
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
 @Composable
 fun CourseDetailScreen(
     navController: NavHostController,
@@ -58,7 +57,6 @@ fun CourseDetailScreen(
         factory = CourseDetailViewModel.provideFactory(courseId)
     ),
 ) {
-    // Parse justPaid từ arguments (dạng String)
     val justPaid = navController.currentBackStackEntry?.arguments?.getString("justPaid")?.toBoolean() ?: false
     android.util.Log.d("CourseDetailScreen", "✅ justPaid parsed from arguments: $justPaid")
 
@@ -66,7 +64,6 @@ fun CourseDetailScreen(
     val course = state.course ?: return
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    // Gọi refresh khi justPaid = true (vừa thanh toán xong)
     LaunchedEffect(justPaid) {
         android.util.Log.d("CourseDetailScreen", "🚀 LaunchedEffect triggered with justPaid=$justPaid")
         if (justPaid) {
@@ -127,7 +124,6 @@ fun CourseDetailScreen(
             contentPadding = PaddingValues(bottom = 16.dp),
         ) {
 
-            // ── 1. Hero video ─────────────────────────────────────────────
             item {
                 HeroVideoSection(
                     imageUrl     = course.imageUrl,
@@ -138,7 +134,6 @@ fun CourseDetailScreen(
                 )
             }
 
-            // ── 2. Course info ────────────────────────────────────────────
             item {
                 Column(modifier = Modifier.padding(16.dp)) {
                     // Title + Price row
@@ -164,7 +159,6 @@ fun CourseDetailScreen(
 
                     Spacer(Modifier.height(8.dp))
 
-                    // Description
                     Text(
                         text     = course.description,
                         style    = MaterialTheme.typography.bodyMedium,
@@ -175,7 +169,6 @@ fun CourseDetailScreen(
 
                     Spacer(Modifier.height(12.dp))
 
-                    // Stats row
                     CourseStatsRow(
                         rating      = course.rating,
                         reviewCount = course.reviewCount,
@@ -222,24 +215,25 @@ fun CourseDetailScreen(
                 }
             }
 
-            // ── 3. Divider ────────────────────────────────────────────────
             item { HorizontalDivider(color = GlassBorder, modifier = Modifier.padding(horizontal = 16.dp)) }
 
-            // ── 4. Instructor ─────────────────────────────────────────────
             item {
-                InstructorCard(
-                    name       = course.instructorName,
-                    title      = course.instructorTitle,
-                    avatarUrl  = course.instructorAvatar,
-                    onFollow   = {},
-                    modifier   = Modifier.padding(16.dp),
+                CourseDetailReviewSection(
+                    summary = state.reviewSummary,
+                    userReview = state.userReview,
+                    totalReviewCount = state.reviewSummary?.totalReviews ?: state.reviews.size,
+                    isLoading = state.isLoadingReviews,
+                    onWriteReview = { vm.showReviewDialog() },
+                    onEditReview = { vm.showEditReviewDialog() },
+                    onViewAllReviews = {
+                        navController.navigate(courseReviewsRoute(course.id, course.title))
+                    },
+                    modifier = Modifier.padding(16.dp),
                 )
             }
 
-            // ── 5. Divider ────────────────────────────────────────────────
             item { HorizontalDivider(color = GlassBorder, modifier = Modifier.padding(horizontal = 16.dp)) }
 
-            // ── 6. Course content ─────────────────────────────────────────
             item {
                 Text(
                     "Course Content",
@@ -250,7 +244,6 @@ fun CourseDetailScreen(
                 )
             }
 
-            // ── 7. Modules ────────────────────────────────────────────────
             items(course.modules, key = { it.id }) { module ->
                 ModuleCard(
                     module     = module,
@@ -275,12 +268,94 @@ fun CourseDetailScreen(
             }
         }
     }
+    if (state.showReviewDialog) {
+        val isEditing = state.userReview != null
+        AlertDialog(
+            onDismissRequest = { vm.dismissReviewDialog() },
+            title = {
+                Text(
+                    if (isEditing) "Sửa đánh giá" else "Viết đánh giá",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Đánh giá:", style = MaterialTheme.typography.bodyMedium)
+                        (1..5).forEach { star ->
+                            IconButton(
+                                onClick = { vm.setRatingInput(star) },
+                                modifier = Modifier.size(36.dp),
+                            ) {
+                                Icon(
+                                    if (star <= state.ratingInput) Icons.Default.Star else Icons.Default.StarBorder,
+                                    contentDescription = "$star sao",
+                                    tint = if (star <= state.ratingInput) Secondary else OnSurfaceVariant,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = state.reviewContentInput,
+                        onValueChange = { vm.setReviewContentInput(it) },
+                        label = { Text("Nội dung đánh giá") },
+                        minLines = 3,
+                        maxLines = 5,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Primary,
+                            unfocusedBorderColor = GlassBorder,
+                        ),
+                    )
+
+                    state.reviewSubmitError?.let { error ->
+                        Text(
+                            error,
+                            color = ErrorColor,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { vm.submitReview(state.ratingInput, state.reviewContentInput) },
+                    enabled = state.ratingInput > 0 &&
+                        state.reviewContentInput.isNotBlank() &&
+                        !state.isSubmittingReview,
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    if (state.isSubmittingReview) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text(if (isEditing) "Cập nhật" else "Gửi đánh giá", color = Color.White)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { vm.dismissReviewDialog() }) {
+                    Text("Hủy", color = OnSurfaceVariant)
+                }
+            },
+            containerColor = Surface,
+            shape = RoundedCornerShape(20.dp),
+        )
+    }
 }
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// HERO VIDEO SECTION
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun HeroVideoSection(
     imageUrl:     String,
@@ -292,7 +367,6 @@ private fun HeroVideoSection(
             .fillMaxWidth()
             .aspectRatio(16f / 9f),
     ) {
-        // Thumbnail
         AsyncImage(
             model              = imageUrl,
             contentDescription = null,
@@ -300,7 +374,6 @@ private fun HeroVideoSection(
             modifier           = Modifier.fillMaxSize(),
         )
 
-        // Dark gradient overlay
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -311,7 +384,6 @@ private fun HeroVideoSection(
                 )
         )
 
-        // Play button
         Box(
             contentAlignment = Alignment.Center,
             modifier         = Modifier
@@ -330,7 +402,6 @@ private fun HeroVideoSection(
             )
         }
 
-        // BESTSELLER badge
         if (isBestseller) {
             Surface(
                 color    = SecondaryDim.copy(alpha = 0.90f),
@@ -351,9 +422,6 @@ private fun HeroVideoSection(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STATS ROW
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun CourseStatsRow(
     rating:      Float,
@@ -365,7 +433,6 @@ private fun CourseStatsRow(
         verticalAlignment     = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Rating
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Star, null, tint = Tertiary, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(4.dp))
@@ -375,7 +442,6 @@ private fun CourseStatsRow(
 
         StatDot()
 
-        // Duration
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.AccessTime, null, tint = OnSurfaceVariant, modifier = Modifier.size(14.dp))
             Spacer(Modifier.width(4.dp))
@@ -384,7 +450,6 @@ private fun CourseStatsRow(
 
         StatDot()
 
-        // Lessons
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Movie, null, tint = OnSurfaceVariant, modifier = Modifier.size(14.dp))
             Spacer(Modifier.width(4.dp))
@@ -398,55 +463,6 @@ private fun StatDot() {
     Box(modifier = Modifier.size(4.dp).clip(CircleShape).background(OnSurfaceVariant.copy(0.4f)))
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// INSTRUCTOR CARD
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun InstructorCard(
-    name:      String,
-    title:     String,
-    avatarUrl: String,
-    onFollow:  () -> Unit,
-    modifier:  Modifier = Modifier,
-) {
-    Surface(
-        color    = SurfaceContainer,
-        shape    = RoundedCornerShape(16.dp),
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier          = Modifier.padding(12.dp),
-        ) {
-            AsyncImage(
-                model              = avatarUrl,
-                contentDescription = name,
-                contentScale       = ContentScale.Crop,
-                modifier           = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .border(2.dp, Primary.copy(0.4f), CircleShape),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(name, style = MaterialTheme.typography.labelLarge, color = OnSurface, fontWeight = FontWeight.SemiBold)
-                Text(title, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
-            }
-            OutlinedButton(
-                onClick = onFollow,
-                shape   = RoundedCornerShape(10.dp),
-                border  = BorderStroke(2.dp, Primary),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-            ) {
-                Text("Follow", color = Primary, style = MaterialTheme.typography.labelMedium)
-            }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODULE CARD (expandable)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun ModuleCard(
     module:        CourseModule,
@@ -463,7 +479,6 @@ private fun ModuleCard(
             .border(1.dp, GlassBorder, RoundedCornerShape(20.dp)),
     ) {
         Column {
-            // ── Module header ─────────────────────────────────────────────
             Row(
                 verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -493,7 +508,6 @@ private fun ModuleCard(
                 )
             }
 
-            // ── Lessons (animated) ────────────────────────────────────────
             AnimatedVisibility(
                 visible = isExpanded,
                 enter   = expandVertically() + fadeIn(),
@@ -524,7 +538,6 @@ private fun LessonRow(lesson: LessonItem, onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .then(if (lesson.isLocked) Modifier.background(Color.Transparent) else Modifier),
     ) {
-        // Icon
         Box(
             contentAlignment = Alignment.Center,
             modifier         = Modifier
@@ -558,9 +571,6 @@ private fun LessonRow(lesson: LessonItem, onClick: () -> Unit) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BOTTOM BAR
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun CourseDetailBottomBar(
     price:        String,
@@ -577,7 +587,6 @@ private fun CourseDetailBottomBar(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
-            // Bookmark button
             Box(
                 contentAlignment = Alignment.Center,
                 modifier         = Modifier
@@ -595,7 +604,6 @@ private fun CourseDetailBottomBar(
                 )
             }
 
-            // Buy / Start button
             Box(
                 contentAlignment = Alignment.Center,
                 modifier         = Modifier
@@ -620,9 +628,6 @@ private fun CourseDetailBottomBar(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TOP BAR
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun CourseDetailTopBar(onBack: () -> Unit, onShare: () -> Unit) {
     Surface(color = GlassBg, tonalElevation = 0.dp) {

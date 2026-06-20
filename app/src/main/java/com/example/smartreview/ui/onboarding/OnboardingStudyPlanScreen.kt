@@ -31,14 +31,12 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.smartreview.ui.theme.*
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
 @Composable
 fun OnboardingStudyPlanScreen(
     onSignUp: () -> Unit,
     onLogIn:  () -> Unit,
     onBack:   () -> Unit,
 ) {
-    // Animated progress bar target (simulates loading data)
     var progressAnimated by remember { mutableStateOf(0f) }
     val progress by animateFloatAsState(
         targetValue   = progressAnimated,
@@ -47,7 +45,6 @@ fun OnboardingStudyPlanScreen(
     )
     LaunchedEffect(Unit) { progressAnimated = 0.84f }
 
-    // Entrance fade-in
     var visible by remember { mutableStateOf(false) }
     val screenAlpha by animateFloatAsState(
         targetValue   = if (visible) 1f else 0f,
@@ -63,7 +60,6 @@ fun OnboardingStudyPlanScreen(
             .alpha(screenAlpha),
     ) {
 
-        // ── Decorative ambient orbs ───────────────────────────────────────
         AmbientOrb(size = 320.dp, color = GradientStart.copy(0.15f), offsetX = 100.dp, offsetY = (-60).dp, align = Alignment.TopEnd)
         AmbientOrb(size = 280.dp, color = Secondary.copy(0.08f),     offsetX = (-60).dp, offsetY = 60.dp, align = Alignment.BottomStart)
 
@@ -73,14 +69,12 @@ fun OnboardingStudyPlanScreen(
                 .systemBarsPadding(),
         ) {
 
-            // ── Top bar ───────────────────────────────────────────────────
             OnboardingTopBar(
                 showAvatar   = true,
                 showBackArrow = true,
                 onBack       = onBack,
             )
 
-            // ── Scrollable body ───────────────────────────────────────────
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier            = Modifier
@@ -90,31 +84,26 @@ fun OnboardingStudyPlanScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
 
-                // 1. Hero image card
                 HeroImageCard(
                     imageUrl = "https://picsum.photos/seed/studyplan/600/300",
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                // 2. Description + progress card
                 DescriptionCard(
                     progress = progress,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                // 3. Adaptive learning stats chip
                 AdaptiveLearningChip(modifier = Modifier.fillMaxWidth())
 
                 Spacer(Modifier.height(4.dp))
 
-                // 4. Sign up button
                 GradientOnboardingButton(
                     text     = "Sign up",
                     onClick  = onSignUp,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                // 5. Log in outlined button
                 OutlinedButton(
                     onClick  = onLogIn,
                     shape    = RoundedCornerShape(16.dp),
@@ -127,7 +116,6 @@ fun OnboardingStudyPlanScreen(
                     Text("Log in", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 }
 
-                // 6. Terms text
                 Text(
                     text      = "By continuing, you agree to our Terms of Service",
                     style     = MaterialTheme.typography.bodySmall,
@@ -138,7 +126,6 @@ fun OnboardingStudyPlanScreen(
                 Spacer(Modifier.height(16.dp))
             }
 
-            // ── Step indicator (bottom, 3 steps – step 2 active) ──────────
             StepIndicator(
                 currentStep = 1,
                 totalSteps  = 3,
@@ -150,9 +137,6 @@ fun OnboardingStudyPlanScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HERO IMAGE CARD  – background image + glass overlay with tagline
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun HeroImageCard(imageUrl: String, modifier: Modifier = Modifier) {
     Surface(
@@ -163,7 +147,6 @@ private fun HeroImageCard(imageUrl: String, modifier: Modifier = Modifier) {
             .border(1.dp, GlassBorder, RoundedCornerShape(20.dp)),
     ) {
         Box {
-            // Background image (semi-transparent)
             AsyncImage(
                 model              = imageUrl,
                 contentDescription = null,
@@ -173,7 +156,6 @@ private fun HeroImageCard(imageUrl: String, modifier: Modifier = Modifier) {
                     .alpha(0.60f),
             )
 
-            // Gradient overlay
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -188,13 +170,11 @@ private fun HeroImageCard(imageUrl: String, modifier: Modifier = Modifier) {
                     )
             )
 
-            // Text overlay at bottom-left
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(16.dp),
             ) {
-                // "Growth Engine" pill
                 Surface(
                     color    = GlassBg,
                     shape    = RoundedCornerShape(8.dp),
@@ -225,9 +205,6 @@ private fun HeroImageCard(imageUrl: String, modifier: Modifier = Modifier) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DESCRIPTION + PROGRESS CARD
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun DescriptionCard(progress: Float, modifier: Modifier = Modifier) {
     Surface(
@@ -250,7 +227,6 @@ private fun DescriptionCard(progress: Float, modifier: Modifier = Modifier) {
 
             Spacer(Modifier.height(4.dp))
 
-            // Weekly progress
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -283,9 +259,6 @@ private fun DescriptionCard(progress: Float, modifier: Modifier = Modifier) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ADAPTIVE LEARNING CHIP
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun AdaptiveLearningChip(modifier: Modifier = Modifier) {
     Surface(
@@ -329,9 +302,6 @@ private fun AdaptiveLearningChip(modifier: Modifier = Modifier) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STEP INDICATOR  (linear bars – used in Screen 2)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun StepIndicator(currentStep: Int, totalSteps: Int, modifier: Modifier = Modifier) {
     Row(

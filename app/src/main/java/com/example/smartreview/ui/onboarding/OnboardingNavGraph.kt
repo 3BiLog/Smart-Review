@@ -5,20 +5,17 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navigation
 
-// ─── Route constants ──────────────────────────────────────────────────────────
-
 object OnboardingRoutes {
     const val GRAPH        = "onboarding_graph"
     const val FREE_COURSES = "onboarding_free_courses"
     const val STUDY_PLAN   = "onboarding_study_plan"
 }
 
-// ─── Nested NavGraph (plugs into the main NavHost) ────────────────────────────
 
 fun NavGraphBuilder.onboardingGraph(
     navController:       NavHostController,
-    onOnboardingFinished: () -> Unit,   // navigate to Login / Home
-    onSkip:              () -> Unit,    // skip straight to Login
+    onOnboardingFinished: () -> Unit,
+    onSkip:              () -> Unit,
 ) {
     navigation(
         startDestination = OnboardingRoutes.FREE_COURSES,

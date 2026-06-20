@@ -32,12 +32,10 @@ fun QuizScreen(
     android.util.Log.d("QuizScreen", ">>> QuizScreen launched with quizId=$quizId")
     val state by vm.uiState.collectAsStateWithLifecycle()
     val quiz = state.quiz
-    // ✅ Track goal completion with state
     var showGoalCompleted by remember { mutableStateOf(false) }
     var xpEarned by remember { mutableStateOf(0L) }
     val context = LocalContext.current
 
-    // ✅ Callback to update state when goal completed
     val onGoalCompleted: (Long) -> Unit = remember {
         { xp ->
             xpEarned = xp
@@ -45,7 +43,6 @@ fun QuizScreen(
         }
     }
 
-    // ✅ Show toast when goal completed
     if (showGoalCompleted) {
         LaunchedEffect(showGoalCompleted) {
             Toast.makeText(

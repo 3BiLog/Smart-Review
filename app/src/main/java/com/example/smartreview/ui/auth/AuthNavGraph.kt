@@ -17,13 +17,6 @@ object AuthRoutes {
     const val SUCCESS = "auth_success"
 }
 
-/**
- * Shared [AuthViewModel] scoped to the auth nested graph.
- *
- * Uses [NavBackStackEntry.destination.parent] from the current screen entry instead of
- * [NavHostController.getBackStackEntry] with a hard-coded graph route, which crashes when
- * `auth_graph` is not on the back stack (e.g. app start destination is Home).
- */
 @Composable
 private fun rememberAuthViewModel(
     navController: NavHostController,
@@ -35,10 +28,6 @@ private fun rememberAuthViewModel(
     return viewModel(owner)
 }
 
-/**
- * Resolves the ViewModelStoreOwner for the auth nested graph from the active child entry.
- * Falls back to [backStackEntry] if the graph parent is unavailable (no crash).
- */
 private fun NavHostController.safeAuthGraphViewModelOwner(
     backStackEntry: NavBackStackEntry,
 ): NavBackStackEntry {
@@ -64,7 +53,7 @@ fun NavGraphBuilder.authGraph(
             LoginScreen(
                 onLoginSuccess = onAuthComplete,
                 onNavigateSignUp = { navController.navigate(AuthRoutes.SIGN_UP) },
-                navController = navController,  // ✅ Thêm navController
+                navController = navController,
                 vm = authVm,
             )
         }
@@ -87,7 +76,6 @@ fun NavGraphBuilder.authGraph(
             AuthSuccessScreen(vm = authVm, onDone = onAuthComplete)
         }
 
-        // ✅ Thêm route cho ForgotPassword
         composable(FORGOT_PASSWORD_ROUTE) { backStackEntry ->
             val forgotVm: ForgotPasswordViewModel = viewModel(backStackEntry)
             ForgotPasswordScreen(

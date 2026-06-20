@@ -4,10 +4,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// ─── Color Palette (từ design) ───────────────────────────────────────────────
 val Primary          = Color(0xFF9D4EDD)
 val PrimaryVariant   = Color(0xFF7B2CBF)
 val Secondary        = Color(0xFF00E5FF)
+val red = Color(0xFFF44336)
 val SecondaryDim     = Color(0xFF45F1C5)
 val Tertiary         = Color(0xFFFFB785)
 val Background       = Color(0xFF1C1B1F)

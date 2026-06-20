@@ -13,7 +13,7 @@ data class PomodoroUiState(
     val totalSeconds:     Int         = 25 * 60,
     val remainingSeconds: Int         = 25 * 60,
     val status:           TimerStatus = TimerStatus.IDLE,
-    val cycle:            Int         = 1,          // current cycle (1–4)
+    val cycle:            Int         = 1,
     val deepFocusEnabled: Boolean     = false,
 ) {
     val progress: Float get() = remainingSeconds.toFloat() / totalSeconds.coerceAtLeast(1)
@@ -59,12 +59,10 @@ class PomodoroViewModel : ViewModel() {
 
     private fun onTimerFinished() {
         if (_uiState.value.status == TimerStatus.WORKING) {
-            // Switch to break
             val breakSec = _uiState.value.breakMinutes * 60
             _uiState.update { it.copy(status = TimerStatus.BREAK, totalSeconds = breakSec, remainingSeconds = breakSec) }
             startTimer()
         } else {
-            // Break over → next cycle
             val newCycle = (_uiState.value.cycle % 4) + 1
             val workSec  = _uiState.value.workMinutes * 60
             _uiState.update { it.copy(status = TimerStatus.IDLE, cycle = newCycle, totalSeconds = workSec, remainingSeconds = workSec) }

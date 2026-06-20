@@ -11,9 +11,6 @@ import com.example.smartreview.data.repository.QuizRepositoryProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/**
- * Validates in-progress snapshots and drops stale entries (completed / invalid).
- */
 object ResumeLearningSupport {
 
     const val LOG_TAG = "ResumeLearning"
@@ -57,7 +54,6 @@ object ResumeLearningSupport {
         return sanitized to filteredReasons
     }
 
-    // ✅ Sửa thành suspend function, dùng withContext(Dispatchers.IO)
     suspend fun isFlashcardSnapshotResumable(snapshot: FlashcardProgressSnapshot): Boolean {
         if (snapshot.deckId.isBlank()) return false
         val deck = withContext(Dispatchers.IO) {

@@ -29,7 +29,7 @@ import com.example.smartreview.ui.theme.*
 fun ForgotPasswordScreen(
     onBack: () -> Unit,
     onResetSent: () -> Unit,
-    vm: ForgotPasswordViewModel = viewModel()  // ✅ Thêm viewModel với default value
+    vm: ForgotPasswordViewModel = viewModel()
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
 
@@ -48,7 +48,6 @@ fun ForgotPasswordScreen(
                 .padding(horizontal = 24.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -61,7 +60,6 @@ fun ForgotPasswordScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Icon
             Box(
                 modifier = Modifier
                     .size(80.dp)
@@ -101,7 +99,6 @@ fun ForgotPasswordScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Form
             AuthFormCard {
                 AuthTextField(
                     value = state.email,

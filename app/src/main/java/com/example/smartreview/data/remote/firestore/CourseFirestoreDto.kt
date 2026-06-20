@@ -1,11 +1,5 @@
 package com.example.smartreview.data.remote.firestore
 
-/**
- * Firestore document shapes for courses/{courseId}.
- *
- * Field names match DA3-master production schema (embedded modules[] / lessons[]).
- * Document ID is the course ID and is not duplicated in these DTOs.
- */
 object CourseFirestorePaths {
     const val COURSES = "courses"
 

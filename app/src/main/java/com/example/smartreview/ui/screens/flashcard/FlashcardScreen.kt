@@ -41,13 +41,11 @@ fun FlashcardScreen(
     val state by vm.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // ✅ Track goal completion with state
     var showGoalCompleted by remember { mutableStateOf(false) }
     var xpEarned by remember { mutableStateOf(0L) }
     var goalCompletedMessage by remember { mutableStateOf<String?>(null) }
 
 
-    // ✅ Callback to update state when goal completed
     val onGoalCompleted: (Long) -> Unit = remember {
         { xp ->
             goalCompletedMessage = "Hoàn thành mục tiêu hôm nay! +$xp XP"
@@ -55,7 +53,6 @@ fun FlashcardScreen(
         }
     }
 
-    // ✅ Hiển thị Toast khi có message
     goalCompletedMessage?.let { message ->
         LaunchedEffect(message) {
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
@@ -64,7 +61,6 @@ fun FlashcardScreen(
         }
     }
 
-    // ✅ Start tracking
     DisposableEffect(Unit) {
         StudyTimeManager.startTracking("FlashcardScreen", onGoalCompleted)
         onDispose {

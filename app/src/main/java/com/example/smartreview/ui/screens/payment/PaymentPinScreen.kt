@@ -35,7 +35,6 @@ fun PaymentPinScreen(
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
 
-    // ── Navigate on success ───────────────────────────────────────────────
     LaunchedEffect(state.navigateSuccess) {
         if (state.navigateSuccess) {
             navController.navigate(PaymentRoutes.successRoute(courseId)) {
@@ -45,12 +44,10 @@ fun PaymentPinScreen(
         }
     }
 
-    // ── Auto-submit when 6 digits entered ─────────────────────────────────
     LaunchedEffect(state.pin) {
         if (state.isComplete) vm.onSubmitPin()
     }
 
-    // ── Shake animation for wrong PIN ─────────────────────────────────────
     val shakeAnim = remember { Animatable(0f) }
     LaunchedEffect(state.triggerShake) {
         if (state.triggerShake) {
@@ -65,7 +62,6 @@ fun PaymentPinScreen(
         }
     }
 
-    // ── Cancel dialog ─────────────────────────────────────────────────────
     if (state.showCancelDialog) {
         AlertDialog(
             onDismissRequest  = { vm.onDismissCancelDialog() },
@@ -89,7 +85,6 @@ fun PaymentPinScreen(
     Box(
         modifier = Modifier.fillMaxSize().background(Background),
     ) {
-        // Ambient orbs
         Box(modifier = Modifier.size(350.dp).align(Alignment.TopEnd).offset(x = 80.dp, y = (-80).dp)
             .background(Brush.radialGradient(listOf(GradientStart.copy(0.15f), Color.Transparent)), CircleShape))
         Box(modifier = Modifier.size(280.dp).align(Alignment.BottomStart).offset(x = (-60).dp, y = 80.dp)
@@ -103,7 +98,6 @@ fun PaymentPinScreen(
                 .padding(horizontal = 24.dp, vertical = 16.dp),
         ) {
 
-            // ── Top bar ────────────────────────────────────────────────────
             Row(
                 verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -124,7 +118,6 @@ fun PaymentPinScreen(
 
             Spacer(Modifier.weight(0.5f))
 
-            // ── PIN card ───────────────────────────────────────────────────
             Surface(
                 color    = GlassBg,
                 shape    = RoundedCornerShape(24.dp),
@@ -138,7 +131,6 @@ fun PaymentPinScreen(
                     modifier            = Modifier.padding(24.dp),
                 ) {
 
-                    // Lock icon
                     Surface(
                         color    = SurfaceVariant,
                         shape    = CircleShape,
@@ -149,7 +141,6 @@ fun PaymentPinScreen(
                         }
                     }
 
-                    // Title + description
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Payment Confirmation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = OnSurface)
                         Spacer(Modifier.height(4.dp))
@@ -161,7 +152,6 @@ fun PaymentPinScreen(
                         )
                     }
 
-                    // ── PIN dots ───────────────────────────────────────────
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
                         modifier              = Modifier
@@ -187,7 +177,6 @@ fun PaymentPinScreen(
                         }
                     }
 
-                    // Error message
                     AnimatedVisibility(visible = state.errorMessage != null) {
                         Text(
                             state.errorMessage ?: "",
@@ -197,7 +186,6 @@ fun PaymentPinScreen(
                         )
                     }
 
-                    // Transaction details
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         modifier              = Modifier.fillMaxWidth(),
@@ -210,7 +198,6 @@ fun PaymentPinScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // ── Numeric keypad ─────────────────────────────────────────────
             PinKeypad(
                 isEnabled = state.isInputEnabled,
                 onDigit   = { vm.onDigit(it) },
@@ -221,7 +208,6 @@ fun PaymentPinScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Confirm button ────────────────────────────────────────────
             Box(
                 contentAlignment = Alignment.Center,
                 modifier         = Modifier
@@ -267,9 +253,6 @@ fun PaymentPinScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PIN KEYPAD
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun PinKeypad(isEnabled: Boolean, onDigit: (String) -> Unit, onDelete: () -> Unit, onBio: () -> Unit, modifier: Modifier = Modifier) {
     val rows = listOf(

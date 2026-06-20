@@ -24,18 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartreview.ui.theme.*
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PUBLIC API
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Full-screen error state composable.
- *
- * Usage:
- * ```
- * ErrorScreen(onRetry = { viewModel.reload() }, onReturn = { navController.popBackStack() })
- * ```
- */
 @Composable
 fun ErrorScreen(
     modifier:        Modifier  = Modifier,
@@ -47,7 +35,6 @@ fun ErrorScreen(
     iconTint:        Color     = ErrorColor,
     onRetry:         (() -> Unit)? = null,
     onReturn:        (() -> Unit)? = null,
-    // Slot for a custom illustration; defaults to built-in animated icon
     illustration:    (@Composable () -> Unit)? = null,
 ) {
     Box(
@@ -56,7 +43,6 @@ fun ErrorScreen(
             .fillMaxSize()
             .background(Background),
     ) {
-        // ── Ambient background glow ───────────────────────────────────────
         Box(
             modifier = Modifier
                 .size(420.dp)
@@ -68,7 +54,6 @@ fun ErrorScreen(
                 )
         )
 
-        // ── Glass error card ──────────────────────────────────────────────
         Surface(
             color    = GlassBg,
             shape    = RoundedCornerShape(20.dp),
@@ -88,7 +73,6 @@ fun ErrorScreen(
                 verticalArrangement = Arrangement.spacedBy(0.dp),
                 modifier            = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
             ) {
-                // Illustration / icon
                 if (illustration != null) {
                     illustration()
                 } else {
@@ -97,7 +81,6 @@ fun ErrorScreen(
 
                 Spacer(Modifier.height(20.dp))
 
-                // Title
                 Text(
                     text       = title,
                     style      = MaterialTheme.typography.headlineSmall,
@@ -108,7 +91,6 @@ fun ErrorScreen(
 
                 Spacer(Modifier.height(8.dp))
 
-                // Description
                 Text(
                     text      = description,
                     style     = MaterialTheme.typography.bodyMedium,
@@ -118,7 +100,6 @@ fun ErrorScreen(
 
                 Spacer(Modifier.height(24.dp))
 
-                // ── Retry button (primary gradient) ───────────────────────
                 if (onRetry != null) {
                     GlowGradientButton(
                         text     = retryLabel,
@@ -128,7 +109,6 @@ fun ErrorScreen(
                     )
                 }
 
-                // ── Return button (secondary pill) ────────────────────────
                 if (onReturn != null) {
                     Spacer(Modifier.height(10.dp))
                     Box(
@@ -152,9 +132,6 @@ fun ErrorScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BUILT-IN ILLUSTRATION  (floating animated icon with glow ring)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun ErrorIllustration(icon: ImageVector, tint: Color) {
     // Float animation
@@ -169,7 +146,6 @@ private fun ErrorIllustration(icon: ImageVector, tint: Color) {
         label = "floatY",
     )
 
-    // Pulsing glow
     val glowAlpha by floatTransition.animateFloat(
         initialValue  = 0.20f,
         targetValue   = 0.50f,
@@ -186,7 +162,6 @@ private fun ErrorIllustration(icon: ImageVector, tint: Color) {
             .size(180.dp)
             .graphicsLayer { translationY = floatY },
     ) {
-        // Outer glow ring
         Box(
             modifier = Modifier
                 .size(180.dp)
@@ -196,7 +171,6 @@ private fun ErrorIllustration(icon: ImageVector, tint: Color) {
                 )
         )
 
-        // Glass circle container
         Surface(
             color    = GlassBg,
             shape    = CircleShape,
@@ -216,7 +190,6 @@ private fun ErrorIllustration(icon: ImageVector, tint: Color) {
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Glitch bars decorative
                     listOf(
                         GradientStart to 44.dp,
                         Secondary     to 28.dp,
@@ -237,9 +210,6 @@ private fun ErrorIllustration(icon: ImageVector, tint: Color) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GLOW GRADIENT BUTTON  (shared between Error + Offline)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 internal fun GlowGradientButton(
     text:     String,
@@ -248,7 +218,6 @@ internal fun GlowGradientButton(
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier) {
-        // Glow shadow layer (slightly larger box behind)
         Box(
             modifier = Modifier
                 .matchParentSize()
@@ -256,7 +225,6 @@ internal fun GlowGradientButton(
                 .clip(RoundedCornerShape(16.dp))
                 .background(GradientStart.copy(alpha = 0.35f)),
         )
-        // Actual button
         Box(
             contentAlignment = Alignment.Center,
             modifier         = Modifier
@@ -277,9 +245,6 @@ internal fun GlowGradientButton(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PREVIEWS
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Preview(
     name        = "ErrorScreen – Default",

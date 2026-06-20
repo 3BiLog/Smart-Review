@@ -1,25 +1,14 @@
 package com.example.smartreview.data.model
 
-// ─── Core domain models ───────────────────────────────────────────────────────
-//
-// Populated from Firestore via [com.example.smartreview.data.remote.firestore.CourseFirestoreMapper].
-// Production field mapping (DA3-master):
-//   thumbnailUrl -> imageUrl
-//   level        -> difficulty
-//   ratingCount  -> reviewCount
-//   totalDurationHours -> durationHours
-//   modules[] / lessons[] embedded arrays
-
 data class Course(
     val id:              String,
     val title:           String,
     val imageUrl:        String,
-    val difficulty:      String,     // "Beginner" | "Intermediate" | "Advanced"
+    val difficulty:      String,
     val lessonCount:     Int,
-    val progress:        Float,       // 0f–1f
+    val progress:        Float,
     val xpReward:        Int,
-    val price:           Long,        // VND, 0 = free
-    val rating:          Float,
+    val price:           Long,
     val reviewCount:     Int,
     val durationHours:   Float,
     val instructorName:  String,
@@ -29,6 +18,8 @@ data class Course(
     val category:        String,
     val isBestseller:    Boolean          = false,
     val modules:         List<CourseModule> = emptyList(),
+    val rating: Float = 0f,
+    val ratingCount: Long = 0,
 ) {
     val formattedPrice: String
         get() = if (price == 0L) "Miễn phí"
@@ -44,7 +35,7 @@ data class CourseModule(
     val id:            String,
     val title:         String,
     val lessonCount:   Int,
-    val durationLabel: String,            // "3 Lessons • 45m"
+    val durationLabel: String,
     val lessons:       List<LessonItem>,
     val isLocked:      Boolean,
 )
@@ -58,15 +49,10 @@ data class LessonItem(
     val thumbnailUrl:     String,
     val isLocked:         Boolean,
     val isCurrentlyPlaying: Boolean = false,
-    /** YouTube URL for [LessonVideoPlayerScreen]; may be enriched from [LessonContent]. */
     val videoUrl:         String = "",
-    /** XP granted on completion — from Firestore lesson.xpReward. */
     val xpReward:         Int = 0,
-    /** Type of lesson (video, reading, quiz, flashcard). */
     val lessonType:       LessonType = LessonType.VIDEO,
-    /** Optional quizId referenced by this lesson (may differ from lesson.id). */
     val quizId:            String? = null,
-    /** Optional raw Firestore lesson payload used for rich content hydration. */
     val contentData:      Map<String, Any?>? = null,
 ) {
 val formattedDuration: String

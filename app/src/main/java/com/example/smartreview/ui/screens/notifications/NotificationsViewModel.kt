@@ -6,15 +6,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-// ─── Domain models ─────────────────────────────────────────────────────────────
 
 enum class NotificationType {
-    CHALLENGE,      // ⭐ star – secondary color, progress bar, priority
-    COURSE_UPDATE,  // 🏫 school – primary color
-    PROMOTIONAL,    // 🖼 background image + badge chip
-    MESSAGE,        // 👤 user avatar + online dot
-    SYSTEM,         // ⚙  settings – muted / low-opacity
-    COMMUNITY,      // 👥 group – tertiary color
+    CHALLENGE,
+    COURSE_UPDATE,
+    PROMOTIONAL,
+    MESSAGE,
+    SYSTEM,
+    COMMUNITY,
 }
 
 enum class NotificationTab(val label: String) {
@@ -40,8 +39,6 @@ data class NotificationItem(
     val badgeLabel:      String? = null,
 )
 
-// ─── UI State ──────────────────────────────────────────────────────────────────
-
 data class NotificationsUiState(
     val selectedTab:   NotificationTab         = NotificationTab.NOTIFICATIONS,
     val notifications: List<NotificationItem>  = emptyList(),
@@ -49,8 +46,6 @@ data class NotificationsUiState(
     val unreadNotifications: Int               = 0,
     val unreadMessages:      Int               = 0,
 )
-
-// ─── ViewModel ─────────────────────────────────────────────────────────────────
 
 class NotificationsViewModel : ViewModel() {
 

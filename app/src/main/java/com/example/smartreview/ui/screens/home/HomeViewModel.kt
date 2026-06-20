@@ -3,8 +3,8 @@ package com.example.smartreview.ui.screens.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.smartreview.data.auth.AuthSession
+import com.example.smartreview.data.learning.StudyTimeManager
 import com.example.smartreview.data.model.Course
-import com.example.smartreview.data.model.LearningProgressionItem
 import com.example.smartreview.data.model.UserLearningProgress
 import com.example.smartreview.data.repository.CourseRepository
 import com.example.smartreview.data.repository.CourseRepositoryProvider
@@ -28,7 +28,7 @@ data class CourseCard(
     val title:        String,
     val subtitle:     String,
     val imageUrl:     String,
-    val progress:     Float,        // 0f – 1f
+    val progress:     Float,
     val timeLeft:     String,
     val nextLessonId: String? = null,
 )
@@ -46,7 +46,7 @@ data class HomeUiState(
     val xp: Long = 1250,
     val streak: Long = 5,
     val goalProgress: Float = 0.6f,
-    val goalCurrent: Int = 15,
+    val goalBaseMinutes: Int = 15,
     val goalTarget: Int = 25,
     val dailyGoalXP: Int = 0,
     val isGoalCompleted: Boolean = false,
@@ -55,7 +55,10 @@ data class HomeUiState(
     val completedCourses: List<Course> = emptyList(),
     val recommended: List<RecommendedCard> = emptyList(),
     val isLoading: Boolean = true,
-)
+) {
+    val goalCurrent: Int
+        get() = goalBaseMinutes + StudyTimeManager.totalStudyMinutes.value.toInt()
+}
 
 class HomeViewModel(
     private val userRepository: UserRepository = UserRepositoryProvider.default,
@@ -72,6 +75,7 @@ class HomeViewModel(
         loadMockData()
         observeGamificationProfile()
         loadUserCourses()
+        observeStudyTime()
     }
 
     fun refreshResumeLearning() {
@@ -134,9 +138,6 @@ class HomeViewModel(
         }
     }
 
-    /**
-     * ✅ Phân loại courses - dùng vòng lặp thay vì count với suspend function
-     */
     private suspend fun categorizeCourses(
         courses: List<Course>,
         progress: UserLearningProgress
@@ -153,7 +154,6 @@ class HomeViewModel(
             val totalLessons = course.modules.sumOf { it.lessons.size }
             if (totalLessons == 0) continue
 
-            // ✅ Dùng vòng lặp thay vì count để gọi suspend function
             var completedLessonsCount = 0
             for (module in course.modules) {
                 for (lesson in module.lessons) {
@@ -170,7 +170,6 @@ class HomeViewModel(
             }
         }
 
-        // ✅ Sắp xếp courses theo tiến độ
         val progressMap = mutableMapOf<String, Float>()
         for (course in inProgress) {
             val total = course.modules.sumOf { it.lessons.size }
@@ -190,9 +189,6 @@ class HomeViewModel(
         return Pair(inProgress, completed)
     }
 
-    /**
-     * ✅ Tính phần trăm hoàn thành của course
-     */
     private suspend fun getCourseProgress(course: Course, progress: UserLearningProgress): Float {
         val snapshot = LearningProgressionPolicy.ProgressSnapshot(
             completedLessonIds = progress.completedLessonIds,
@@ -214,9 +210,6 @@ class HomeViewModel(
         return completedLessons.toFloat() / totalLessons
     }
 
-    /**
-     * ✅ Lấy lesson tiếp theo chưa hoàn thành
-     */
     private suspend fun getNextLessonId(course: Course, progress: UserLearningProgress): String? {
         val snapshot = LearningProgressionPolicy.ProgressSnapshot(
             completedLessonIds = progress.completedLessonIds,
@@ -257,7 +250,6 @@ class HomeViewModel(
                     val xpValue = profile.xp
                     val streakValue = profile.streak
                     val levelValue = (xpValue / 100).toInt().coerceAtLeast(1)
-                    // ✅ Update daily goal info
                     val goalMinutes = profile.dailyGoal.toInt()
                     val todayMinutes = profile.todayStudyTime.toInt()
                     val goalCompleted = todayMinutes >= goalMinutes
@@ -270,13 +262,22 @@ class HomeViewModel(
                             streak = streakValue,
                             level = levelValue,
                             goalProgress = progress.coerceAtMost(1f),
-                            goalCurrent = todayMinutes,
+                            goalBaseMinutes = todayMinutes,
                             goalTarget = goalMinutes,
                             dailyGoalXP = profile.dailyGoalXP.toInt(),
                             isGoalCompleted = goalCompleted,
                         )
                     }
                 }
+        }
+    }
+
+    private fun observeStudyTime() {
+        viewModelScope.launch {
+            StudyTimeManager.totalStudyMinutes.collect { _ ->
+                // Chỉ cần cập nhật lại state để recompose (goalCurrent là computed property)
+                _uiState.update { it.copy() }
+            }
         }
     }
 

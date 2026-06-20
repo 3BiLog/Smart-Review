@@ -33,10 +33,8 @@ import com.example.smartreview.ui.components.AuthRequiredBanner
 import com.example.smartreview.ui.components.SmartReviewBottomBar
 import com.example.smartreview.ui.theme.*
 
-// ─── Route ───────────────────────────────────────────────────────────────────
 const val LEADERBOARD_ROUTE = "leaderboard"
 
-// Medal colors
 private val GoldColor   = Color(0xFFFFD770)
 private val SilverColor = Color(0xFFB0AEC0)
 private val BronzeColor = Color(0xFFCD7F32)
@@ -60,7 +58,6 @@ fun LeaderboardScreen(
             contentPadding = PaddingValues(bottom = 16.dp),
         ) {
 
-            // ── Live indicator ────────────────────────────────────────────
             item {
                 LiveIndicatorRow(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
@@ -91,7 +88,6 @@ fun LeaderboardScreen(
                 }
             }
 
-            // ── Time tabs ─────────────────────────────────────────────────
             item {
                 TimeTabs(
                     selectedTab = state.selectedTab,
@@ -100,11 +96,10 @@ fun LeaderboardScreen(
                 )
             }
 
-            // ── Podium ────────────────────────────────────────────────────
             item {
                 if (state.topThree.size >= 3) {
                     PodiumSection(
-                        entries  = state.topThree,  // [2nd, 1st, 3rd]
+                        entries  = state.topThree,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 16.dp),
@@ -112,7 +107,6 @@ fun LeaderboardScreen(
                 }
             }
 
-            // ── Rest of list ──────────────────────────────────────────────
             items(state.restEntries, key = { it.userId }) { entry ->
                 LeaderboardRow(
                     entry    = entry,
@@ -123,9 +117,6 @@ fun LeaderboardScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TOP BAR
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun LeaderboardTopBar(onBack: () -> Unit) {
     Surface(color = GlassBg, tonalElevation = 0.dp) {
@@ -154,9 +145,6 @@ private fun LeaderboardTopBar(onBack: () -> Unit) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LIVE INDICATOR
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun LiveIndicatorRow(modifier: Modifier = Modifier) {
     Box(contentAlignment = Alignment.Center, modifier = modifier.fillMaxWidth()) {
@@ -194,9 +182,6 @@ private fun LiveIndicatorRow(modifier: Modifier = Modifier) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TIME TABS
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun TimeTabs(
     selectedTab: LeaderboardTab,
@@ -235,10 +220,6 @@ private fun TimeTabs(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PODIUM SECTION
-// Ordering: entries[0] = 2nd, entries[1] = 1st, entries[2] = 3rd
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun PodiumSection(entries: List<LeaderboardEntry>, modifier: Modifier = Modifier) {
     Row(
@@ -246,7 +227,6 @@ private fun PodiumSection(entries: List<LeaderboardEntry>, modifier: Modifier = 
         verticalAlignment     = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
     ) {
-        // Rank 2 (left)
         PodiumPerson(
             entry          = entries[0],
             rank           = 2,
@@ -255,7 +235,6 @@ private fun PodiumSection(entries: List<LeaderboardEntry>, modifier: Modifier = 
             showCrown      = false,
             modifier       = Modifier.weight(1f),
         )
-        // Rank 1 (center, tallest)
         PodiumPerson(
             entry          = entries[1],
             rank           = 1,
@@ -264,7 +243,6 @@ private fun PodiumSection(entries: List<LeaderboardEntry>, modifier: Modifier = 
             showCrown      = true,
             modifier       = Modifier.weight(1f),
         )
-        // Rank 3 (right, shortest)
         PodiumPerson(
             entry          = entries[2],
             rank           = 3,
@@ -292,7 +270,6 @@ private fun PodiumPerson(
         verticalArrangement = Arrangement.Bottom,
         modifier            = modifier.fillMaxHeight(),
     ) {
-        // Crown icon for rank 1
         if (showCrown) {
             Icon(
                 Icons.Default.Star,
@@ -303,7 +280,6 @@ private fun PodiumPerson(
             Spacer(Modifier.height(4.dp))
         }
 
-        // Avatar
         Box(modifier = Modifier.size(avatarSize)) {
             AsyncImage(
                 model              = entry.avatarUrl,
@@ -318,7 +294,6 @@ private fun PodiumPerson(
                         shape  = CircleShape,
                     ),
             )
-            // Rank number badge
             Box(
                 contentAlignment = Alignment.Center,
                 modifier         = Modifier
@@ -353,7 +328,6 @@ private fun PodiumPerson(
 
         Spacer(Modifier.height(8.dp))
 
-        // Platform box
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -371,7 +345,6 @@ private fun PodiumPerson(
                 ),
         ) {
             if (rank == 1) {
-                // Gradient accent line at top
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -383,9 +356,6 @@ private fun PodiumPerson(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LEADERBOARD ROW (rank 4+)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun LeaderboardRow(entry: LeaderboardEntry, modifier: Modifier = Modifier) {
     Surface(
@@ -406,7 +376,6 @@ private fun LeaderboardRow(entry: LeaderboardEntry, modifier: Modifier = Modifie
             verticalAlignment = Alignment.CenterVertically,
             modifier          = Modifier.padding(12.dp),
         ) {
-            // Rank number
             if (entry.isCurrentUser) {
                 Box(
                     modifier = Modifier
@@ -425,7 +394,6 @@ private fun LeaderboardRow(entry: LeaderboardEntry, modifier: Modifier = Modifie
                 modifier   = Modifier.width(24.dp),
             )
 
-            // Avatar
             AsyncImage(
                 model              = entry.avatarUrl,
                 contentDescription = entry.displayName,
@@ -442,7 +410,6 @@ private fun LeaderboardRow(entry: LeaderboardEntry, modifier: Modifier = Modifie
 
             Spacer(Modifier.width(12.dp))
 
-            // Name + progress
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -482,7 +449,6 @@ private fun LeaderboardRow(entry: LeaderboardEntry, modifier: Modifier = Modifie
 
             Spacer(Modifier.width(12.dp))
 
-            // Score
             Text(
                 "%,d".format(entry.score),
                 style      = MaterialTheme.typography.labelLarge,

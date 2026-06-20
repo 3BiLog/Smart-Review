@@ -74,7 +74,6 @@ fun PaymentMethodScreen(
         onDispose { lifecycle.removeObserver(observer) }
     }
 
-    // Bottom-sheet style: fixed at bottom, dismissable
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -92,7 +91,6 @@ fun PaymentMethodScreen(
                     .fillMaxWidth()
                     .navigationBarsPadding(),
             ) {
-                // Drag handle
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -107,13 +105,11 @@ fun PaymentMethodScreen(
                     )
                 }
 
-                // Scrollable content
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    // ── Header ────────────────────────────────────────────
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -130,7 +126,6 @@ fun PaymentMethodScreen(
                         }
                     }
 
-                    // ── Course Info ────────────────────────────────────────
                     Surface(
                         color = SurfaceContainer,
                         shape = RoundedCornerShape(14.dp),
@@ -166,7 +161,6 @@ fun PaymentMethodScreen(
                         }
                     }
 
-                    // ── Payment method list ───────────────────────────────
                     Column(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -187,7 +181,6 @@ fun PaymentMethodScreen(
                         }
                     }
 
-                    // ── Total section ─────────────────────────────────────
                     Surface(
                         color = Color(0xFF0E0E11),
                         modifier = Modifier
@@ -213,7 +206,6 @@ fun PaymentMethodScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    // ── Error ─────────────────────────────────────────────
                     state.errorMessage?.let { err ->
                         Text(
                             err,
@@ -223,7 +215,6 @@ fun PaymentMethodScreen(
                         )
                     }
 
-                    // ── Pay button ────────────────────────────────────────
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -274,7 +265,6 @@ fun PaymentMethodScreen(
                         }
                     }
 
-                    // Terms
                     Text(
                         text = "Bằng việc thanh toán, bạn đồng ý với Điều khoản dịch vụ",
                         style = MaterialTheme.typography.labelSmall,
@@ -292,9 +282,6 @@ fun PaymentMethodScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PAYMENT METHOD ITEM
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun PaymentMethodItem(method: PaymentMethodOption, isSelected: Boolean, onSelect: () -> Unit) {
     val icon: ImageVector = when (method.type) {
@@ -346,7 +333,6 @@ private fun PaymentMethodItem(method: PaymentMethodOption, isSelected: Boolean, 
                     color = OnSurfaceVariant
                 )
             }
-            // Custom radio button
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier

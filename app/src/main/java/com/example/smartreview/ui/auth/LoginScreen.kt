@@ -25,7 +25,7 @@ import com.example.smartreview.ui.theme.*
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateSignUp: () -> Unit,
-    navController: NavController,  // ✅ Thêm NavController
+    navController: NavController,
     vm: AuthViewModel = viewModel(),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
@@ -94,7 +94,6 @@ fun LoginScreen(
                     isError = state.password.isNotEmpty() && state.password.length < AuthUiState.MIN_PASSWORD_LENGTH,
                 )
 
-                // ✅ Thêm nút "Quên mật khẩu" với navigation
                 Row(
                     horizontalArrangement = Arrangement.End,
                     modifier = Modifier.fillMaxWidth(),
