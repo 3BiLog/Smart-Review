@@ -99,7 +99,7 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     TextButton(
-                        onClick = { navController.navigate(FORGOT_PASSWORD_ROUTE) }  // ✅ Sử dụng constant
+                        onClick = { navController.navigate(FORGOT_PASSWORD_ROUTE) }
                     ) {
                         Text(
                             "Quên mật khẩu?",

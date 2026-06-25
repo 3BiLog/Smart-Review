@@ -133,7 +133,7 @@ class FirestoreGamificationRepository(
                         newXp = outcome.newXp,
                         newStreak = outcome.newStreak.toInt(),
                         streakIncremented = outcome.streakIncremented,
-                        todayStudyKey = "",  // Deprecated, use todayTimestamp
+                        todayStudyKey = "",
                     )
                 }
             }

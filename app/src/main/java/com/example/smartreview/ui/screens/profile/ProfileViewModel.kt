@@ -86,6 +86,7 @@ class ProfileViewModel(
                 }
                 .collect { profile ->
                     if (profile == null) return@collect
+                    checkAndResetStudyTimeManager(profile)
                     _uiState.update { state ->
                         if (state.isEditMode || state.isSavingProfile) state
                         else state.applyUserProfile(profile)

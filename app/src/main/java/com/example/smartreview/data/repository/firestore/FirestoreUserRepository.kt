@@ -7,11 +7,15 @@ import com.example.smartreview.data.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import com.google.firebase.Timestamp
@@ -25,11 +29,12 @@ class FirestoreUserRepository(
 
     override suspend fun getCurrentUserProfile(): UserProfile? = withContext(Dispatchers.IO) {
         val uid = firebaseAuth.currentUser?.uid ?: return@withContext null
-        fetchUserProfile(uid) ?: run {
+        val profile = fetchUserProfile(uid) ?: run {
             val email = firebaseAuth.currentUser?.email.orEmpty()
             if (email.isBlank()) fallback.getCurrentUserProfile()
             else ensureUserProfileExists(uid, email)
         }
+        profile?.let { ensureDailyStudyTimeReset(it) }
     }
 
     override suspend fun getUserProfile(uid: String): UserProfile? = withContext(Dispatchers.IO) {
@@ -43,6 +48,8 @@ class FirestoreUserRepository(
             awaitClose { }
             return@callbackFlow
         }
+        val scope = CoroutineScope(coroutineContext + SupervisorJob())
+        var resetInProgress = false
         val registration = userDocument(uid).addSnapshotListener { snapshot, error ->
             if (error != null) {
                 trySend(null)
@@ -53,9 +60,30 @@ class FirestoreUserRepository(
             } else {
                 null
             }
-            trySend(profile)
+            if (profile == null) {
+                trySend(null)
+                return@addSnapshotListener
+            }
+            if (shouldResetDailyStudyTime(profile)) {
+                if (!resetInProgress) {
+                    resetInProgress = true
+                    scope.launch {
+                        try {
+                            resetDailyStudyTime()
+                        } finally {
+                            resetInProgress = false
+                        }
+                    }
+                }
+                trySend(profile.withDailyStudyTimeReset())
+            } else {
+                trySend(profile)
+            }
         }
-        awaitClose { registration.remove() }
+        awaitClose {
+            registration.remove()
+            scope.cancel()
+        }
     }.flowOn(Dispatchers.IO)
 
     override suspend fun updateCurrentUserProfile(
@@ -169,6 +197,13 @@ class FirestoreUserRepository(
         }
     }
 
+    private suspend fun ensureDailyStudyTimeReset(profile: UserProfile): UserProfile {
+        if (!shouldResetDailyStudyTime(profile)) return profile
+        val success = resetDailyStudyTime()
+        if (!success) return profile.withDailyStudyTimeReset()
+        return fetchUserProfile(profile.uid) ?: profile.withDailyStudyTimeReset()
+    }
+
     private fun shouldResetDailyStudyTime(profile: UserProfile): Boolean {
         val lastReset = profile.lastResetDate?.toDate() ?: return true
         val today = Calendar.getInstance()
@@ -177,6 +212,12 @@ class FirestoreUserRepository(
                 today.get(Calendar.DAY_OF_YEAR) == lastResetCal.get(Calendar.DAY_OF_YEAR)
         return !sameDay
     }
+
+    private fun UserProfile.withDailyStudyTimeReset(): UserProfile = copy(
+        todayStudyTime = 0,
+        dailyGoalXP = 0,
+        lastResetDate = Timestamp.now(),
+    )
 
     private fun getTodayDate(): String = formatDateKey(Calendar.getInstance())
 

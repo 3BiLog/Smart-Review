@@ -29,9 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartreview.ui.theme.*
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BRAND SECTION  (logo + title + subtitle)
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun AuthBrandSection(
     icon:     ImageVector = Icons.Default.Psychology,
@@ -41,7 +38,6 @@ fun AuthBrandSection(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // Icon circle with glow
         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(72.dp)) {
             Box(
                 modifier = Modifier
@@ -69,7 +65,6 @@ fun AuthBrandSection(
             }
         }
 
-        // Brand name
         Text(
             text  = "SMART REVIEW",
             style = MaterialTheme.typography.headlineLarge.copy(
@@ -78,7 +73,6 @@ fun AuthBrandSection(
             ),
         )
 
-        // Subtitle
         Text(
             text      = subtitle,
             style     = MaterialTheme.typography.bodyMedium,
@@ -267,7 +261,6 @@ fun SocialLoginButton(
         colors   = ButtonDefaults.outlinedButtonColors(containerColor = SurfaceContainer),
         modifier = modifier.height(52.dp),
     ) {
-        // Social "logo" – colored initial
         Surface(
             color    = when (label) {
                 "Google" -> Color(0xFFDE5246).copy(0.20f)

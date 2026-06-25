@@ -79,7 +79,6 @@ class FirestoreReviewRepository(
                 transaction.update(courseRef, "ratingCount", FieldValue.increment(1))
             }.await()
 
-            // Recalculate average rating
             updateCourseAverageRating(review.courseId)
             true
         } catch (e: Exception) {

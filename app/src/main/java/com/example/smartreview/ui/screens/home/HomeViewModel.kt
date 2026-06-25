@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.smartreview.data.auth.AuthSession
 import com.example.smartreview.data.learning.StudyTimeManager
 import com.example.smartreview.data.model.Course
+import com.example.smartreview.data.model.UserProfile
 import com.example.smartreview.data.model.UserLearningProgress
 import com.example.smartreview.data.repository.CourseRepository
 import com.example.smartreview.data.repository.CourseRepositoryProvider
@@ -247,6 +248,7 @@ class HomeViewModel(
                 }
                 .collect { profile ->
                     profile ?: return@collect
+                    checkAndResetStudyTimeManager(profile)
                     val xpValue = profile.xp
                     val streakValue = profile.streak
                     val levelValue = (xpValue / 100).toInt().coerceAtLeast(1)
@@ -270,6 +272,21 @@ class HomeViewModel(
                     }
                 }
         }
+    }
+
+    private fun checkAndResetStudyTimeManager(profile: UserProfile) {
+        val lastReset = profile.lastResetDate?.toDate()
+        val today = java.util.Calendar.getInstance()
+        if (lastReset == null || !isSameDay(today, lastReset)) {
+            StudyTimeManager.forceResetDaily()
+            android.util.Log.d("HomeViewModel", "StudyTimeManager reset due to new day")
+        }
+    }
+
+    private fun isSameDay(cal1: java.util.Calendar, date2: java.util.Date): Boolean {
+        val cal2 = java.util.Calendar.getInstance().apply { time = date2 }
+        return cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
+                cal1.get(java.util.Calendar.DAY_OF_YEAR) == cal2.get(java.util.Calendar.DAY_OF_YEAR)
     }
 
     private fun observeStudyTime() {

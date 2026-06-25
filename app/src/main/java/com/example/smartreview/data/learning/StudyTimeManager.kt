@@ -69,6 +69,9 @@ object StudyTimeManager {
             foregroundAccumulatedMs = 0L
             segmentStartMs = 0L
             _pendingMinutes.value = 0L
+            scope.launch {
+                userRepository.resetDailyStudyTime()
+            }
             android.util.Log.d(TAG, "New day detected – study time reset")
         }
     }
@@ -178,6 +181,7 @@ object StudyTimeManager {
     }
 
     private fun tick() {
+        resetIfNewDay()
         val pending = unsavedMinutes()
         refreshPendingFlow()
         if (pending > 0) {

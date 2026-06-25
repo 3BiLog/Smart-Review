@@ -38,7 +38,6 @@ data class CourseDetailUiState(
     val recommendedNextLessonTitle: String? = null,
     val isEnrolled: Boolean = false,
     val isCheckingEnrollment: Boolean = true,
-    // Reviews
     val reviews: List<Review> = emptyList(),
     val reviewSummary: ReviewSummary? = null,
     val userReview: Review? = null,
@@ -85,7 +84,6 @@ class CourseDetailViewModel(
                 _uiState.update { it.copy(isLoading = false) }
             }
             if (justPaid) {
-                // Refresh reviews after purchase (user may review after enrolling)
                 loadReviews()
             }
         }

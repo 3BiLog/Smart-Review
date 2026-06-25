@@ -257,14 +257,12 @@ fun FlipCard(
                     Spacer(Modifier.height(24.dp))
                     Text(
                         text = buildAnnotatedString {
-                            append("What is\n")
                             withStyle(
                                 SpanStyle(
                                     brush = Brush.linearGradient(listOf(GradientStart, Secondary)),
                                     fontWeight = FontWeight.Bold,
                                 ),
                             ) { append(card.front) }
-                            append("?")
                         },
                         fontSize = 26.sp,
                         textAlign = TextAlign.Center,

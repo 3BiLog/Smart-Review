@@ -94,7 +94,6 @@ object LearningFlowNavigation {
             android.util.Log.d("LearningFlowNavigation", "navigateContinueLearning: course=${course.title}, nextLessonId=$nextLessonId")
             navigateLessonVideo(nextLessonId, courseId = course.id)
         } else {
-            // Course is completed, navigate to course detail
             android.util.Log.d("LearningFlowNavigation", "navigateContinueLearning: course completed, navigate to detail")
             navigate(courseDetailRoute(course.id))
         }

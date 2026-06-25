@@ -6,7 +6,7 @@ import com.example.smartreview.data.model.LessonItem
 import com.example.smartreview.data.model.LessonType
 import com.example.smartreview.data.video.YouTubeVideoUrl
 
-object CourseFirestoreMapper {
+object  CourseFirestoreMapper {
 
     fun toCourse(documentId: String, data: Map<String, Any>?): Course? {
         if (data == null) return null
